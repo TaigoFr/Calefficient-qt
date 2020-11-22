@@ -25,7 +25,7 @@ MainWindow::MainWindow(QWidget *parent)
         &QDesktopServices::openUrl);
 
     QFile file;
-    file.setFileName(":/Calefficient-Qt-Test1_client_secret.json");
+    file.setFileName(":/Calefficient_client_secret.json");
     file.open(QIODevice::ReadOnly | QIODevice::Text);
     QString val = file.readAll();
 
