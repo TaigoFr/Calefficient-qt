@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file>Calefficient-Qt-Test1_client_secret.json</file>
+    </qresource>
+</RCC>
