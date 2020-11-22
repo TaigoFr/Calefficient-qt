@@ -18,11 +18,9 @@ public:
 
 private slots:
     void googleGrant();
-    void showTime();
 
 private:
     Ui::MainWindow *ui;
-
     QOAuth2AuthorizationCodeFlow *google;
 };
 #endif // MAINWINDOW_H

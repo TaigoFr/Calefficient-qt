@@ -9,8 +9,8 @@
 #include <QFile>
 #include <QOAuthHttpServerReplyHandler>
 #include <QNetworkReply>
-#include <QTimer>
 #include <QVBoxLayout>
+#include <QSettings>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -18,15 +18,38 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    QSettings settings("Calefficient", "OAuth2");
+    QString token = settings.value("token").toString();
+    QString refreshToken = settings.value("refreshToken").toString();
+    qDebug() << "START";
+    qDebug() << token;
+    qDebug() << refreshToken;
+
     google = new QOAuth2AuthorizationCodeFlow;
+
+    if(token!=""){
+        google->setToken(token);
+        google->setRefreshToken(refreshToken);
+
+        auto reply = google->get(QUrl("https://www.googleapis.com/calendar/v3/users/me/calendarList"));
+
+        connect(reply, &QNetworkReply::finished, [reply](){
+            qDebug() << "REQUEST FINISHED. Error? " << (reply->error() != QNetworkReply::NoError);
+            qDebug() << reply->readAll();
+        });
+
+        return;
+    }
+
+
     //google->setScope("email");
     google->setScope("https://www.googleapis.com/auth/calendar.readonly");
     connect(google, &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser,
-        &QDesktopServices::openUrl);
+            &QDesktopServices::openUrl);
 
     QFile file;
     file.setFileName(":/private/Calefficient_client_secret.json");
-    file.open(QIODevice::ReadOnly | QIODevice::Text);
+    file.open(QIODevice::ReadOnly);
     QString val = file.readAll();
 
     QJsonDocument document = QJsonDocument::fromJson(val.toUtf8());
@@ -53,24 +76,12 @@ MainWindow::MainWindow(QWidget *parent)
     // tmp, not sure if necessary, probably can use google->token
     connect(replyHandler, &QOAuthHttpServerReplyHandler::tokensReceived, [=](){
         qDebug() << __FUNCTION__ << __LINE__ << "Token Received!";
+        qDebug() << google->token();
+        qDebug() << google->refreshToken();
     });
 
     replyHandler->setCallbackText("<h1> Logged in succesfully! Go back and enjoy Calefficient ;) </h1>\
-                                <img src=\"http://caenrigen.tech/Calefficient/Logo-512.png\" alt=\"Calefficient Logo\">");
-
-    connect(google, &QOAuth2AuthorizationCodeFlow::granted, [=](){
-        qDebug() << __FUNCTION__ << __LINE__ << "Access Granted!";
-
-        //auto reply = google->get(QUrl("https://www.googleapis.com/plus/v1/people/me"));
-        auto reply = google->get(QUrl("https://www.googleapis.com/calendar/v3/users/me/calendarList"));
-
-        connect(reply, &QNetworkReply::finished, [reply](){
-            qDebug() << "REQUEST FINISHED. Error? " << (reply->error() != QNetworkReply::NoError);
-            qDebug() << reply->readAll();
-        });
-    });
-
-
+                                  <img src=\"http://caenrigen.tech/Calefficient/Logo-512.png\" alt=\"Calefficient Logo\">");
 
     // https://www.qt.io/blog/2017/01/25/connecting-qt-application-google-services-using-oauth-2-0
     // https://stackoverflow.com/questions/62296641/unable-to-implement-google-sign-in-using-qoauth2authorizationcodeflow
@@ -86,18 +97,8 @@ MainWindow::MainWindow(QWidget *parent)
     QVBoxLayout *l = new QVBoxLayout();
     ui->centralwidget->setLayout(l);
     ui->centralwidget->layout()->addWidget(button);
-    //button->setText(tr("something"));
-    //button->setText(redirectUri.toEncoded());
-    //setCentralWidget(button);
 
     connect(button, SIGNAL(pressed()), this, SLOT(googleGrant()));
-
-/*
-    QTimer *timer = new QTimer(this);
-    connect(timer, SIGNAL(timeout()), this, SLOT(showTime()));
-    timer->start(1000);
-*/
-
 }
 
 MainWindow::~MainWindow()
@@ -108,28 +109,26 @@ MainWindow::~MainWindow()
 
 void MainWindow::googleGrant()
 {
-    //QEventLoop *loop = new QEventLoop();
-    //connect(google, &QOAuth2AuthorizationCodeFlow::granted, loop, &QEventLoop::quit);
+    connect(google, &QOAuth2AuthorizationCodeFlow::granted, [=](){
+        qDebug() << __FUNCTION__ << __LINE__ << "Access Granted!";
+        qDebug() << "Writing tokens:";
+        qDebug() << "Token: " << google->token();
+        qDebug() << "Refresh Token: " << google->refreshToken();
+
+        QSettings settings("Calefficient", "OAuth2");
+        settings.setValue("token", google->token());
+        settings.setValue("refreshToken", google->refreshToken());
+
+        //auto reply = google->get(QUrl("https://www.googleapis.com/plus/v1/people/me"));
+        auto reply = google->get(QUrl("https://www.googleapis.com/calendar/v3/users/me/calendarList"));
+
+        connect(reply, &QNetworkReply::finished, [reply](){
+            qDebug() << "REQUEST FINISHED. Error? " << (reply->error() != QNetworkReply::NoError);
+            qDebug() << reply->readAll();
+        });
+    });
+
 
     google->grant();
-/*
-    //loop->exec();
 
-    qDebug() << __FUNCTION__ << __LINE__ << "Access Granted!";
-
-    //auto reply = google->get(QUrl("https://www.googleapis.com/plus/v1/people/me"));
-    auto reply = google->get(QUrl("https://www.googleapis.com/calendar/v3/users/me/calendarList"));
-
-    connect(reply, &QNetworkReply::finished, [reply](){
-        qDebug() << "REQUEST FINISHED. Error? " << (reply->error() != QNetworkReply::NoError);
-        qDebug() << reply->readAll();
-    });
-    */
 }
-
-void MainWindow::showTime()
-{
-    static int i = 0;
-    qDebug() << i++;
-}
-
