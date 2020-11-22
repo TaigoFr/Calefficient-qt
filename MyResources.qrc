@@ -1,5 +1,5 @@
 <RCC>
     <qresource prefix="/">
-        <file>../CalefficientPrivate/Calefficient_client_secret.json</file>
+        <file>private/Calefficient_client_secret.json</file>
     </qresource>
 </RCC>
