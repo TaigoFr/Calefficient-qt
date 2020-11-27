@@ -18,35 +18,6 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    QSettings settings("Calefficient", "OAuth2");
-    QString token = settings.value("token").toString();
-    QString refreshToken = settings.value("refreshToken").toString();
-    qDebug() << "START";
-    qDebug() << token;
-    qDebug() << refreshToken;
-
-    google = new QOAuth2AuthorizationCodeFlow;
-
-    if(token!=""){
-        google->setToken(token);
-        google->setRefreshToken(refreshToken);
-
-        auto reply = google->get(QUrl("https://www.googleapis.com/calendar/v3/users/me/calendarList"));
-
-        connect(reply, &QNetworkReply::finished, [reply](){
-            qDebug() << "REQUEST FINISHED. Error? " << (reply->error() != QNetworkReply::NoError);
-            qDebug() << reply->readAll();
-        });
-
-        return;
-    }
-
-
-    //google->setScope("email");
-    google->setScope("https://www.googleapis.com/auth/calendar.readonly");
-    connect(google, &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser,
-            &QDesktopServices::openUrl);
-
     QFile file;
     file.setFileName(":/private/Calefficient_client_secret.json");
     file.open(QIODevice::ReadOnly);
@@ -64,6 +35,66 @@ MainWindow::MainWindow(QWidget *parent)
     const auto redirectUris = settingsObject["redirect_uris"].toArray();
     const QUrl redirectUri(redirectUris[0].toString()); // Get the first URI
     const auto port = static_cast<quint16>(redirectUri.port()); // Get the port
+
+    QSettings settings("Calefficient", "OAuth2");
+    QString token = settings.value("token").toString();
+    QString refreshToken = settings.value("refreshToken").toString();
+    qDebug() << "START";
+    qDebug() << token;
+    qDebug() << refreshToken;
+
+    google = new QOAuth2AuthorizationCodeFlow;
+
+    connect(google, &QOAuth2AuthorizationCodeFlow::tokenChanged, [=](){
+        qDebug() << "tokenChanged!!!!" ;
+        qDebug() << "Token changed: " << google->token();
+        qDebug() << "Refresh token changed: " << google->refreshToken() << "\n\n\n";
+    });
+    connect(google, &QOAuth2AuthorizationCodeFlow::refreshTokenChanged, [=](){
+        qDebug() << "refreshTokenChanged!!!!" ;
+        qDebug() << "Token changed: " << google->token();
+        qDebug() << "Refresh token changed: " << google->refreshToken() << "\n\n\n";
+    });
+
+    if(token!=""){
+        google->setToken(token);
+        google->setRefreshToken(refreshToken);
+
+        auto reply = google->get(QUrl("https://www.googleapis.com/calendar/v3/users/me/calendarList"));
+
+        connect(reply, &QNetworkReply::finished, [=](){
+            qDebug() << "REQUEST FINISHED. Error? " << (reply->error() != QNetworkReply::NoError) << "\t" << reply->error();
+            qDebug() << reply->readAll();
+
+            if(reply->error() == QNetworkReply::AuthenticationRequiredError)
+            {
+                // Refresh token
+                google->setScope("https://www.googleapis.com/auth/calendar.readonly");
+                connect(google, &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser,
+                        &QDesktopServices::openUrl);
+
+                google->setAuthorizationUrl(authUri);
+                google->setClientIdentifier(clientId);
+                google->setAccessTokenUrl(tokenUri);
+
+
+
+                auto replyHandler = new QOAuthHttpServerReplyHandler(port, this);
+                google->setReplyHandler(replyHandler);
+
+                google->refreshAccessToken();
+
+            }
+        });
+
+        return;
+    }
+
+
+    //google->setScope("email");
+    google->setScope("https://www.googleapis.com/auth/calendar.readonly");
+    connect(google, &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser,
+            &QDesktopServices::openUrl);
 
     google->setAuthorizationUrl(authUri);
     google->setClientIdentifier(clientId);
@@ -118,6 +149,7 @@ void MainWindow::googleGrant()
         QSettings settings("Calefficient", "OAuth2");
         settings.setValue("token", google->token());
         settings.setValue("refreshToken", google->refreshToken());
+        // set expiration Date
 
         //auto reply = google->get(QUrl("https://www.googleapis.com/plus/v1/people/me"));
         auto reply = google->get(QUrl("https://www.googleapis.com/calendar/v3/users/me/calendarList"));
