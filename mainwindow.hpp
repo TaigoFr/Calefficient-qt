@@ -2,7 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QOAuth2AuthorizationCodeFlow>
+#include "googlecalendar.hpp"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -21,6 +21,6 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
-    QOAuth2AuthorizationCodeFlow *google;
+    GoogleCalendar google;
 };
 #endif // MAINWINDOW_H

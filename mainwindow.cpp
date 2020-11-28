@@ -1,23 +1,18 @@
-#include "mainwindow.h"
+#include "mainwindow.hpp"
 #include "ui_mainwindow.h"
 
 #include <QPushButton>
-#include <QDesktopServices>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QJsonArray>
-#include <QFile>
-#include <QOAuthHttpServerReplyHandler>
-#include <QNetworkReply>
 #include <QVBoxLayout>
-#include <QSettings>
+#include <QDebug>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , google(":/private/Calefficient_client_secret.json")
 {
     ui->setupUi(this);
 
+    /*
     QFile file;
     file.setFileName(":/private/Calefficient_client_secret.json");
     file.open(QIODevice::ReadOnly);
@@ -56,8 +51,9 @@ MainWindow::MainWindow(QWidget *parent)
         qDebug() << "Refresh token changed: " << google->refreshToken() << "\n\n\n";
     });
 
-    if(token!=""){
-        google->setToken(token);
+    if(token!="")
+    {
+        //google->setToken(token);
         google->setRefreshToken(refreshToken);
 
         auto reply = google->get(QUrl("https://www.googleapis.com/calendar/v3/users/me/calendarList"));
@@ -66,31 +62,27 @@ MainWindow::MainWindow(QWidget *parent)
             qDebug() << "REQUEST FINISHED. Error? " << (reply->error() != QNetworkReply::NoError) << "\t" << reply->error();
             qDebug() << reply->readAll();
 
-            if(reply->error() == QNetworkReply::AuthenticationRequiredError)
+            //if(reply->error() == QNetworkReply::AuthenticationRequiredError)
             {
                 // Refresh token
-                google->setScope("https://www.googleapis.com/auth/calendar.readonly");
-                connect(google, &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser,
-                        &QDesktopServices::openUrl);
+                //google->setScope("https://www.googleapis.com/auth/calendar.readonly");
 
-                google->setAuthorizationUrl(authUri);
+                //google->setAuthorizationUrl(authUri);
                 google->setClientIdentifier(clientId);
                 google->setAccessTokenUrl(tokenUri);
-
-
 
                 auto replyHandler = new QOAuthHttpServerReplyHandler(port, this);
                 google->setReplyHandler(replyHandler);
 
                 google->refreshAccessToken();
-
             }
         });
 
         return;
     }
+    */
 
-
+    /*
     //google->setScope("email");
     google->setScope("https://www.googleapis.com/auth/calendar.readonly");
     connect(google, &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser,
@@ -113,6 +105,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     replyHandler->setCallbackText("<h1> Logged in succesfully! Go back and enjoy Calefficient ;) </h1>\
                                   <img src=\"http://caenrigen.tech/Calefficient/Logo-512.png\" alt=\"Calefficient Logo\">");
+    */
 
     // https://www.qt.io/blog/2017/01/25/connecting-qt-application-google-services-using-oauth-2-0
     // https://stackoverflow.com/questions/62296641/unable-to-implement-google-sign-in-using-qoauth2authorizationcodeflow
@@ -129,26 +122,28 @@ MainWindow::MainWindow(QWidget *parent)
     ui->centralwidget->setLayout(l);
     ui->centralwidget->layout()->addWidget(button);
 
-    connect(button, SIGNAL(pressed()), this, SLOT(googleGrant()));
+    connect(button, &QPushButton::pressed, [this](){
+        qDebug() << google.getCalendarList();
+    });
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
-    delete google;
 }
 
 void MainWindow::googleGrant()
 {
-    connect(google, &QOAuth2AuthorizationCodeFlow::granted, [=](){
+    /*
+    ~
         qDebug() << __FUNCTION__ << __LINE__ << "Access Granted!";
         qDebug() << "Writing tokens:";
         qDebug() << "Token: " << google->token();
         qDebug() << "Refresh Token: " << google->refreshToken();
 
-        QSettings settings("Calefficient", "OAuth2");
-        settings.setValue("token", google->token());
-        settings.setValue("refreshToken", google->refreshToken());
+        //QSettings settings("Calefficient", "OAuth2");
+        //settings.setValue("token", google->token());
+        //settings.setValue("refreshToken", google->refreshToken());
         // set expiration Date
 
         //auto reply = google->get(QUrl("https://www.googleapis.com/plus/v1/people/me"));
@@ -159,8 +154,7 @@ void MainWindow::googleGrant()
             qDebug() << reply->readAll();
         });
     });
+    */
 
-
-    google->grant();
-
+    //google->grant();
 }
