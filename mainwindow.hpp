@@ -2,6 +2,8 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QStackedWidget>
+
 #include "googlecalendar.hpp"
 
 QT_BEGIN_NAMESPACE
@@ -16,11 +18,15 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-private slots:
-    void googleGrant();
+private:
+    void setMainFlow();
+    void setSignInPage();
+    void setAuthenticationPage();
 
 private:
     Ui::MainWindow *ui;
     GoogleCalendar google;
+
+    QStackedWidget flowPages;
 };
 #endif // MAINWINDOW_H

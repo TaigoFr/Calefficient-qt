@@ -9,18 +9,14 @@
 #include <QTimer>
 
 GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Calefficient", "GoogleCalendar")
-{    m_settings.remove("token");
-     m_settings.remove("refreshToken");
-     m_settings.remove("expirationDate");
+{
     readCrendentials(credentials_file);
 
     QString token_str = m_settings.value("token").toString();
     QString refreshToken_str = m_settings.value("refreshToken").toString();
     QDateTime expirationDate = m_settings.value("expirationDate").toDateTime();
 
-    if(token_str != "")
-        setToken(token_str);
-    else
+    if(isSignedIn())
     {
         // not needed for refreshing the token, just for grant
         m_replyHandler->setCallbackText("<h1> Logged in succesfully! Go back and enjoy Calefficient ;) </h1>\
@@ -30,6 +26,8 @@ GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Ca
                 &QDesktopServices::openUrl);
     }
 
+    if(token_str != "")
+        setToken(token_str);
     if(refreshToken_str != "")
         setRefreshToken(refreshToken_str);
     if(expirationDate.isValid())
@@ -102,7 +100,6 @@ QNetworkReply* GoogleCalendar::get_EventLoop(const QString &url)
 
 bool GoogleCalendar::checkAuthentication()
 {
-    //if(!isOnline()) return false;
     bool success = true;
 
     if(token() == ""){
@@ -110,20 +107,29 @@ bool GoogleCalendar::checkAuthentication()
         success = false;
     }
     else if(m_expirationDate < QDateTime::currentDateTime()){
-        QEventLoop loop;
-        QTimer timer;
-        refreshAccessToken();
+        if(isOnline()){
+            QEventLoop loop;
+            QTimer timer;
+            refreshAccessToken();
 
-        // TODO - what to do when token isnt refreshed
-        connect(&timer, &QTimer::timeout, [&success](){
-            qDebug() << "NOT REFRESHED IN TIME!!!!!!";
+            connect(&timer, &QTimer::timeout, [&success, &loop, this](){
+                qDebug() << "NOT REFRESHED IN TIME!!!!!!";
+                success = false;
+                // something very wrong happened with refresh token, delete and force grant again
+                m_settings.remove("token");
+                m_settings.remove("refreshToken");
+                m_settings.remove("expirationDate");
+                loop.quit();
+            });
+            connect(this, &QOAuth2AuthorizationCodeFlow::tokenChanged, &loop, &QEventLoop::quit);
+
+            timer.start(1000 * 5); // 5 secs
+            loop.exec();
+        }
+        else
             success = false;
-        });
-        connect(this, &QOAuth2AuthorizationCodeFlow::refreshTokenChanged, &loop, &QEventLoop::quit);
-
-        timer.start(1000 * 60 * 3); // 3 mins
-        loop.exec();
-    } else return success;
+    } else
+        return success;
 
     return success;
 }
@@ -181,4 +187,9 @@ bool GoogleCalendar::isOnline()
     }
 
     return retVal;
+}
+
+bool GoogleCalendar::isSignedIn()
+{
+    return token()=="";
 }

@@ -14,6 +14,7 @@ public:
     ~GoogleCalendar();
     QString getCalendarList();
     static bool isOnline();
+    bool isSignedIn();
 
 private:
     QNetworkReply* get_EventLoop(const QString& url);
