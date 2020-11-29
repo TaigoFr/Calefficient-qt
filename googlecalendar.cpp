@@ -1,5 +1,5 @@
 #include "googlecalendar.hpp"
-#include <QDesktopServices>
+
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QFile>
@@ -16,14 +16,12 @@ GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Ca
     QString refreshToken_str = m_settings.value("refreshToken").toString();
     QDateTime expirationDate = m_settings.value("expirationDate").toDateTime();
 
-    if(isSignedIn())
+    if(!isSignedIn())
     {
         // not needed for refreshing the token, just for grant
         m_replyHandler->setCallbackText("<h1> Logged in succesfully! Go back and enjoy Calefficient ;) </h1>\
                                         <img src=\"http://caenrigen.tech/Calefficient/Logo-512.png\" alt=\"Calefficient Logo\">");
         setScope("https://www.googleapis.com/auth/calendar.readonly");
-        connect(this, &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser,
-                &QDesktopServices::openUrl);
     }
 
     if(token_str != "")
@@ -58,7 +56,6 @@ GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Ca
 
 GoogleCalendar::~GoogleCalendar()
 {
-
     delete m_replyHandler;
 }
 
@@ -102,7 +99,7 @@ bool GoogleCalendar::checkAuthentication()
 {
     bool success = true;
 
-    if(token() == ""){
+    if(!isSignedIn()){
         grant();
         success = false;
     }
@@ -116,9 +113,7 @@ bool GoogleCalendar::checkAuthentication()
                 qDebug() << "NOT REFRESHED IN TIME!!!!!!";
                 success = false;
                 // something very wrong happened with refresh token, delete and force grant again
-                m_settings.remove("token");
-                m_settings.remove("refreshToken");
-                m_settings.remove("expirationDate");
+                deleteTokens();
                 loop.quit();
             });
             connect(this, &QOAuth2AuthorizationCodeFlow::tokenChanged, &loop, &QEventLoop::quit);
@@ -191,5 +186,12 @@ bool GoogleCalendar::isOnline()
 
 bool GoogleCalendar::isSignedIn()
 {
-    return token()=="";
+    return token()!="";
+}
+
+void GoogleCalendar::deleteTokens()
+{
+    m_settings.remove("token");
+    m_settings.remove("refreshToken");
+    m_settings.remove("expirationDate");
 }

@@ -16,6 +16,8 @@ public:
     static bool isOnline();
     bool isSignedIn();
 
+    void deleteTokens();
+
 private:
     QNetworkReply* get_EventLoop(const QString& url);
     bool checkAuthentication();
