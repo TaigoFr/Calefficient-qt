@@ -20,7 +20,8 @@ MainWindow::MainWindow(QWidget *parent)
     , webView(this)
 #endif
 {
-    google.deleteTokens();
+    // tmp
+    // google.deleteTokens();
 
     ui->setupUi(this);
 
@@ -50,10 +51,12 @@ void MainWindow::setMainFlow()
     QVBoxLayout*l = new QVBoxLayout();
     widget->setLayout(l);
 
-    QPushButton *button = new QPushButton("back to sign in", widget);
+    //QPushButton *button = new QPushButton("back to sign in", widget);
+    QPushButton *button = new QPushButton("Get Calendar List", widget);
     connect(button, &QPushButton::pressed, [this](){
-        qDebug() << google.getCalendarList();
-        flowPages.setCurrentIndex(SIGNIN);
+        google.getOwnedCalendarList();
+        //qDebug() << google.getOwnedCalendarList();
+        //flowPages.setCurrentIndex(SIGNIN);
     });
     l->addWidget(button);
 

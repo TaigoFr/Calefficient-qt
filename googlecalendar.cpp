@@ -21,8 +21,14 @@ GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Ca
         // not needed for refreshing the token, just for grant
         m_replyHandler->setCallbackText("<h1> Logged in succesfully! Go back and enjoy Calefficient ;) </h1>\
                                         <img src=\"http://caenrigen.tech/Calefficient/Logo-512.png\" alt=\"Calefficient Logo\">");
-        setScope("https://www.googleapis.com/auth/calendar.readonly");
+        setScope(
+                    "https://www.googleapis.com/auth/calendar.events.readonly \
+                    https://www.googleapis.com/auth/calendar.readonly \
+                    https://www.googleapis.com/auth/calendar.settings.readonly \
+                    https://www.googleapis.com/auth/userinfo.email"
+                    );
     }
+
 
     if(token_str != "")
         setToken(token_str);
@@ -59,16 +65,57 @@ GoogleCalendar::~GoogleCalendar()
     delete m_replyHandler;
 }
 
-QString GoogleCalendar::getCalendarList()
-{
-    auto reply = get_EventLoop("https://www.googleapis.com/calendar/v3/users/me/calendarList");
-    if(reply != nullptr)
-        return reply->readAll();
-    else
-        return "";
+QDebug operator<<(QDebug dbg, const GoogleCalendar::Calendar& c){
+    dbg.nospace() << "Calendar " << c.name << " [" << c.id << "]:\nColor = " << c.color_hex
+        << "; isSelected = " << c.isSelected << "; isPrimary = " << c.isPrimary
+        << "; timeZone = " << c.timeZone << "\n";
+    return dbg.maybeSpace();
 }
 
-QNetworkReply* GoogleCalendar::get_EventLoop(const QString &url)
+QVector<GoogleCalendar::Calendar> GoogleCalendar::getOwnedCalendarList()
+{
+    QVector<Calendar> calendars;
+
+    QVariantMap options;
+    options["showHidden"] = true;
+    auto reply = get_EventLoop("https://www.googleapis.com/calendar/v3/users/me/calendarList", options);
+    if(reply == nullptr)
+        return calendars;
+
+    QString response = reply->readAll();
+    QJsonDocument json = QJsonDocument::fromJson(response.toUtf8());
+    QJsonObject object = json.object();
+    auto items = object["items"].toArray();
+
+    for(int i =0; i<items.size(); ++i){
+        auto item = items[i].toObject();
+
+        // skip if not owner
+        if(item["accessRole"] != "owner")
+            continue;
+
+        Calendar calendar;
+        calendar.name = item["summary"].toString();
+        calendar.color_hex = item["backgroundColor"].toString();
+        calendar.id = item["id"].toString();
+        calendar.isSelected = item["selected"].toBool();
+        calendar.isPrimary = false;
+        // in principle only the primary calendar has this, and has it set to true
+        if(item.contains("primary"))
+            calendar.isPrimary = item["primary"].toBool();
+        calendar.timeZone = item["timeZone"].toString();
+
+        calendars.push_back(calendar);
+    }
+
+    reply = get_EventLoop("https://www.googleapis.com/oauth2/v1/userinfo", options);
+
+       qDebug() << reply->readAll();
+
+    return calendars;
+}
+
+QNetworkReply* GoogleCalendar::get_EventLoop(const QString &url, const QVariantMap& parameters)
 {
     //get(QUrl("https://www.googleapis.com/plus/v1/people/me"));
     if(!checkAuthentication()) return nullptr;
@@ -76,7 +123,7 @@ QNetworkReply* GoogleCalendar::get_EventLoop(const QString &url)
     QEventLoop loop;
     QTimer timer;
 
-    auto reply = get(QUrl(url));
+    auto reply = get(QUrl(url), parameters);
 
     connect(reply, &QNetworkReply::finished, [reply, &loop](){
         qDebug() << "REQUEST FINISHED. Error? " << (reply->error() != QNetworkReply::NoError);
@@ -191,7 +238,8 @@ bool GoogleCalendar::isSignedIn()
 
 void GoogleCalendar::deleteTokens()
 {
-    m_settings.remove("token");
-    m_settings.remove("refreshToken");
+    setToken("");
+    setRefreshToken("");
     m_settings.remove("expirationDate");
+    m_expirationDate = QDateTime();
 }
