@@ -7,8 +7,6 @@
 #include <QSpacerItem>
 #include <QVBoxLayout>
 #include <QDebug>
-#include <QScreen>
-#include <QRect>
 
 #if USE_INTERNAL_BROWSER
 #include <QWebEngineView>
@@ -114,7 +112,6 @@ void MainWindow::setSignInPage()
     QVBoxLayout*l = new QVBoxLayout();
     l->setAlignment(Qt::AlignCenter);
     widget->setLayout(l);
-    widget->setStyleSheet("background-color: rgb(0, 144, 0);");
 
     connect(&google, &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser,
             [](const QUrl &url){
@@ -132,20 +129,25 @@ void MainWindow::setSignInPage()
         flowPages.setCurrentIndex(MAIN);
     });
 
+    // LOGO
     QLabel* logo = new QLabel(widget);
     QPixmap img = QPixmap(":/resources/images/calefficient_logo_1024_transparent.png");
     logo->setAlignment(Qt::AlignCenter);
 
+    // NAME
     QLabel* name = new QLabel("Calefficient", widget);
     name->setAlignment(Qt::AlignCenter);
-    name->setStyleSheet("margin-top: 20px;"
-                        "font: bold 50pt;"
-                        "color: white");
 
+    // SPACER
     QSpacerItem* spacer = new QSpacerItem(0, 0);
 
+    // BUTTON
     QPushButton *button = new QPushButton("Sign In to Google Calendar", widget);
-    button->setStyleSheet("background-color: rgb(255, 255, 255);");
+    button->setStyleSheet("background-color: rgb(255, 255, 255);"
+                          "color: rgb(0, 144, 0);"
+                          "padding: 0.5em;"
+                          "border-radius: 0.5em;");
+
     button->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Maximum);
 
     connect(button, &QPushButton::clicked, [this](){
@@ -160,12 +162,26 @@ void MainWindow::setSignInPage()
         }
     });
 
-    connect(this, &MainWindow::onResize, [logo, img, spacer, this](){
-        float size = std::min(this->width(), this->height());
-        logo->setPixmap(img.scaledToWidth(size * 0.4));
-        spacer->changeSize(0, this->height() / 3);
+    // onResize
+    connect(this, &MainWindow::onResize, [widget, logo, img, name, spacer, this](){
+        // int size = std::min(this->width(), this->height());
+        int fontSize = (14 * this->height()) / 600;
+
+        widget->setStyleSheet("background-color: rgb(0, 144, 0);"
+                              "font: bold " + QString::number(fontSize) + "px;"
+                              "font-family: \"Roboto\";");
+
+        // QPixmap pix = logo->pixmap(Qt::ReturnByValueConstant());
+        logo->setPixmap(img.scaledToWidth(this->height() * 0.25));
+
+        name->setStyleSheet("margin-top: " + QString::number(this->height() * 0.05) + ";"
+                            "font: bold " + QString::number(fontSize * 2) + "px;"
+                            "color: white");
+
+        spacer->changeSize(0, this->height() * 0.3);
     });
 
+    // add to layout
     l->addWidget(logo);
     l->addWidget(name);
     l->addSpacerItem(spacer);
