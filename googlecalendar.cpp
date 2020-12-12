@@ -8,6 +8,10 @@
 #include <QEventLoop>
 #include <QTimer>
 
+#include <algorithm> // std::sort
+
+#include <QDataStream>
+
 GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Calefficient", "GoogleCalendar")
 {
     readCrendentials(credentials_file);
@@ -22,7 +26,8 @@ GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Ca
         m_replyHandler->setCallbackText("<h1> Logged in succesfully! Go back and enjoy Calefficient ;) </h1>\
                                         <img src=\"http://caenrigen.tech/Calefficient/Logo-512.png\" alt=\"Calefficient Logo\">");
         setScope(
-                    "https://www.googleapis.com/auth/calendar.events.readonly \
+                    /*https://www.googleapis.com/auth/calendar.events.readonly \ - calendar.events replaces it with writing permissions as well*/
+                    "https://www.googleapis.com/auth/calendar.events \
                     https://www.googleapis.com/auth/calendar.readonly \
                     https://www.googleapis.com/auth/calendar.settings.readonly \
                     https://www.googleapis.com/auth/userinfo.email"
@@ -67,8 +72,16 @@ GoogleCalendar::~GoogleCalendar()
 
 QDebug operator<<(QDebug dbg, const GoogleCalendar::Calendar& c){
     dbg.nospace() << "Calendar " << c.name << " [" << c.id << "]:\nColor = " << c.color_hex
-        << "; isSelected = " << c.isSelected << "; isPrimary = " << c.isPrimary
-        << "; timeZone = " << c.timeZone << "\n";
+                  << "; isSelected = " << c.isSelected << "; isPrimary = " << c.isPrimary
+                  << "; timeZone = " << c.timeZone << "\n";
+    return dbg.maybeSpace();
+}
+
+QDebug operator<<(QDebug dbg, const GoogleCalendar::Event& e){
+    dbg.nospace() << "Event " << e.name << " [" << e.id << "] from Calendar " << e.calendar->name << ":\nStart = " << e.start
+                  << "; End = " << e.end << "; Created = " << e.created << "; Updated = " << e.updated
+                  << "\nURL = " << e.htmlLink << "; Description = " << e.description
+                  << "; CreatorId = " << e.creatorId << "; organizerId = " << e.organizerId << "\n";
     return dbg.maybeSpace();
 }
 
@@ -78,7 +91,7 @@ QVector<GoogleCalendar::Calendar> GoogleCalendar::getOwnedCalendarList()
 
     QVariantMap options;
     options["showHidden"] = true;
-    auto reply = get_EventLoop("https://www.googleapis.com/calendar/v3/users/me/calendarList", options);
+    auto reply = request_EventLoop("https://www.googleapis.com/calendar/v3/users/me/calendarList", options);
     if(reply == nullptr)
         return calendars;
 
@@ -108,14 +121,116 @@ QVector<GoogleCalendar::Calendar> GoogleCalendar::getOwnedCalendarList()
         calendars.push_back(calendar);
     }
 
-    reply = get_EventLoop("https://www.googleapis.com/oauth2/v1/userinfo", options);
+    // sort by primary, then selected, then name
+    std::sort(calendars.begin(), calendars.end(), [](const Calendar& c1, const Calendar &c2){
+        if (c1.isPrimary)
+            return true;
+        if (c2.isPrimary)
+            return false;
+        if(c1.isSelected && !c2.isSelected)
+            return true;
+        if(!c1.isSelected && c2.isSelected)
+            return false;
+        return c1.name < c2.name;
+    });
 
-       qDebug() << reply->readAll();
+    // reply = get_EventLoop("https://www.googleapis.com/oauth2/v1/userinfo", options);
+    // qDebug() << reply->readAll();
 
     return calendars;
 }
 
-QNetworkReply* GoogleCalendar::get_EventLoop(const QString &url, const QVariantMap& parameters)
+QVector<GoogleCalendar::Event> GoogleCalendar::getEvents(const GoogleCalendar::Calendar &cal, const QDateTime &start, const QDateTime &end, const QString& key)
+{
+    Q_ASSERT(cal.id != "");
+    Q_ASSERT(end > start);
+
+    QVector<GoogleCalendar::Event> events;
+
+    QVariantMap options;
+    //options["calendarId"] = cal.id;
+    options["orderBy"] = "startTime";
+    if(key!="")
+        options["q"] = key;
+    options["singleEvents"] = true;
+    options["timeMin"] = QDateTimeToRFC3339Format(start);
+    options["timeMax"] = QDateTimeToRFC3339Format(end);
+    auto reply = request_EventLoop("https://www.googleapis.com/calendar/v3/calendars/" + cal.id + "/events", options);
+    if(reply == nullptr)
+        return events;
+
+    QString response = reply->readAll();
+    QJsonDocument json = QJsonDocument::fromJson(response.toUtf8());
+    QJsonObject object = json.object();
+    auto items = object["items"].toArray();
+
+    for(int i =0; i<items.size(); ++i){
+        auto item = items[i].toObject();
+
+        Event event;
+        UpdateEventFromJsonObject(event, item);
+        event.calendar = &cal;
+        events.push_back(event);
+    }
+
+    // qDebug() << response;
+
+    return events;
+}
+
+bool GoogleCalendar::createEvent(GoogleCalendar::Event &event)
+{
+    bool update = false;
+    return createOrUpdateEvent(event, update);
+}
+
+bool GoogleCalendar::moveEvent(GoogleCalendar::Event &event, const GoogleCalendar::Calendar &cal)
+{
+    Q_ASSERT(event.calendar != nullptr);
+
+    QVariantMap options;
+    options["destination"] = cal.id;
+
+    QNetworkReply* reply = request_EventLoop("https://www.googleapis.com/calendar/v3/calendars/" + event.calendar->id + "/events/" + event.id + "/move",
+                                             options, POST);
+
+    // qDebug() << reply->readAll();
+
+    bool success = (reply->error() == QNetworkReply::NoError);
+
+    if(success){
+        QString response = reply->readAll();
+        QJsonDocument json = QJsonDocument::fromJson(response.toUtf8());
+        QJsonObject object = json.object();
+        UpdateEventFromJsonObject(event, object);
+        Q_ASSERT(cal.id == event.organizerId);
+        event.calendar = &cal;
+    }
+
+    return success;
+}
+
+bool GoogleCalendar::updateEvent(GoogleCalendar::Event &event)
+{
+    bool update = true;
+    return createOrUpdateEvent(event, update);
+}
+
+bool GoogleCalendar::deleteEvent(GoogleCalendar::Event &event)
+{
+    Q_ASSERT(event.id != "");
+
+    QVariantMap options;
+    QNetworkReply* reply = request_EventLoop("https://www.googleapis.com/calendar/v3/calendars/" + event.calendar->id + "/events/" + event.id,
+                                             options, DELETE);
+
+    // qDebug() << reply->readAll();
+
+    bool success = (reply->error() == QNetworkReply::NoError);
+    return success;
+}
+
+QNetworkReply* GoogleCalendar::request_EventLoop(const QString &url, const QVariantMap& parameters, RequestType req, RequestParams req_type)
 {
     //get(QUrl("https://www.googleapis.com/plus/v1/people/me"));
     if(!checkAuthentication()) return nullptr;
@@ -123,7 +238,32 @@ QNetworkReply* GoogleCalendar::get_EventLoop(const QString &url, const QVariantM
     QEventLoop loop;
     QTimer timer;
 
-    auto reply = get(QUrl(url), parameters);
+    QNetworkReply* reply;
+    switch(req){
+    case GET:
+        Q_ASSERT(req_type == VARIANT_MAP);
+        reply = get(QUrl(url), parameters);
+        break;
+    case PUT:
+        if(req_type == VARIANT_MAP)
+            reply = put(QUrl(url), parameters);
+        else
+            reply = put(QUrl(url), QJsonDocument::fromVariant(parameters).toJson());
+        break;
+    case POST:
+        if(req_type == VARIANT_MAP)
+            reply = post(QUrl(url), parameters);
+        else
+            reply = post(QUrl(url), QJsonDocument::fromVariant(parameters).toJson());
+        break;
+    case DELETE:
+        Q_ASSERT(req_type == VARIANT_MAP);
+        reply = deleteResource(QUrl(url), parameters);
+        break;
+    default:
+        qDebug("Option not implemented");
+        exit(1);
+    }
 
     connect(reply, &QNetworkReply::finished, [reply, &loop](){
         qDebug() << "REQUEST FINISHED. Error? " << (reply->error() != QNetworkReply::NoError);
@@ -204,6 +344,100 @@ void GoogleCalendar::readCrendentials(const QString& filename)
     setAccessTokenUrl(tokenUri);
     //google->setClientIdentifierSharedKey(clientSecret);
 }
+
+QString GoogleCalendar::QDateTimeToRFC3339Format(const QDateTime & date)
+{
+    return date.toUTC().toString("yyyy-MM-ddThh:mm:ssZ");
+}
+
+QDateTime GoogleCalendar::QDateTimeFromRFC3339Format(const QString &str)
+{
+    // 4 cases:
+    // 2020-11-24T13:15:00Z
+    // 2020-11-24T15:42:51.000Z
+    // 2020-11-30T20:00:00+01:00
+    // 2020-11-30T20:00:00.000+01:00
+
+    bool hasMiliseconds = (str.indexOf('.') != -1);
+    bool hasTimeZone = (str[str.size()-1] != 'Z');
+
+    QString str_date = str.left(str.size() - (hasTimeZone ? 6 : 1));
+    QDateTime date;
+    if(hasMiliseconds){
+        date = QDateTime::fromString(str_date, "yyyy-MM-ddThh:mm:ss.zzz");
+    }
+    else{
+        date = QDateTime::fromString(str_date, "yyyy-MM-ddThh:mm:ss");
+    }
+
+    if(hasTimeZone){
+        QString timezone = str.right(6);
+        int sign = (timezone[0] == '+' ? 1 : -1);
+        int hour = timezone.mid(1, 2).toInt();
+        int minute = timezone.right(2).toInt();
+        int offsetInSecs = sign * (hour * 3600 + minute * 60);
+        date.setOffsetFromUtc(offsetInSecs);
+    }
+
+    return date.toUTC();
+}
+
+void GoogleCalendar::UpdateEventFromJsonObject(Event &event, const QJsonObject &item)
+{
+    event.id = item["id"].toString();
+    event.htmlLink = item["htmlLink"].toString();
+    event.start = QDateTimeFromRFC3339Format(item["start"].toObject()["dateTime"].toString());
+    event.end = QDateTimeFromRFC3339Format(item["end"].toObject()["dateTime"].toString());
+    event.created = QDateTimeFromRFC3339Format(item["created"].toString());
+    event.updated = QDateTimeFromRFC3339Format(item["updated"].toString());
+    event.name = item["summary"].toString();
+    event.creatorId = item["creator"].toObject()["email"].toString();
+    event.organizerId = item["organizer"].toObject()["email"].toString();
+
+    if(item.contains("description"))
+        event.description = item["description"].toString();
+}
+
+bool GoogleCalendar::createOrUpdateEvent(GoogleCalendar::Event &event, bool update)
+{
+    Q_ASSERT(event.calendar != nullptr);
+
+    QVariantMap options;
+
+    QVariantMap endMap;
+    endMap["dateTime"] = QDateTimeToRFC3339Format(event.end);
+    options["end"] = endMap;
+    QVariantMap startMap;
+    startMap["dateTime"] = QDateTimeToRFC3339Format(event.start);
+    options["start"] = startMap;
+
+    options["summary"] = event.name;
+    options["description"] = event.description;
+
+    QNetworkReply* reply;
+    if(update){
+        Q_ASSERT(event.id != "");
+        reply = request_EventLoop("https://www.googleapis.com/calendar/v3/calendars/" + event.calendar->id + "/events/" + event.id,
+                                  options, PUT, REQUEST_BODY);
+    }
+    else
+        reply = request_EventLoop("https://www.googleapis.com/calendar/v3/calendars/" + event.calendar->id + "/events",
+                                  options, POST, REQUEST_BODY);
+
+    // qDebug() << reply->readAll();
+
+    bool success = reply->error() == QNetworkReply::NoError;
+
+    if(success){
+        QString response = reply->readAll();
+        QJsonDocument json = QJsonDocument::fromJson(response.toUtf8());
+        QJsonObject object = json.object();
+        UpdateEventFromJsonObject(event, object);
+    }
+
+    return success;
+}
+
 
 // https://stackoverflow.com/questions/13779789/monitoring-internet-connection-status
 bool GoogleCalendar::isOnline()

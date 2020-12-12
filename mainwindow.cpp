@@ -54,9 +54,26 @@ void MainWindow::setMainFlow()
     //QPushButton *button = new QPushButton("back to sign in", widget);
     QPushButton *button = new QPushButton("Get Calendar List", widget);
     connect(button, &QPushButton::pressed, [this](){
-        google.getOwnedCalendarList();
+        auto calendars = google.getOwnedCalendarList();
+        qDebug() << calendars;
+        //qDebug() << google.getEvents(calendars[0],
+        //                QDateTime::fromString("2020-11-29T00:00:00", Qt::ISODate),
+        //                QDateTime::fromString("2020-12-01T00:00:00", Qt::ISODate));
         //qDebug() << google.getOwnedCalendarList();
         //flowPages.setCurrentIndex(SIGNIN);
+
+        GoogleCalendar::Event event;
+        event.start = QDateTime::fromString("2020-12-04T00:00:00", Qt::ISODate);
+        event.end = QDateTime::fromString("2020-12-04T12:00:00", Qt::ISODate);
+        event.name = "It worked!";
+        event.description = "I am a description";
+        event.calendar = &calendars[0];
+        google.createEvent(event);
+        qDebug() << event;
+        google.moveEvent(event, calendars[1]);
+        event.name = "Name changed!";
+        google.updateEvent(event);
+        google.deleteEvent(event);
     });
     l->addWidget(button);
 
