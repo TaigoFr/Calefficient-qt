@@ -7,6 +7,7 @@
 #include <QSpacerItem>
 #include <QVBoxLayout>
 #include <QDebug>
+#include <QScrollArea>
 
 #if USE_INTERNAL_BROWSER
 #include <QWebEngineView>
@@ -19,6 +20,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , google(":/private/Calefficient_client_secret.json")
+    , active_timer_button(nullptr)
     #if USE_INTERNAL_BROWSER
     , webView(this)
     #endif
@@ -32,10 +34,45 @@ MainWindow::MainWindow(QWidget *parent)
     l->addWidget(&flowPages);
     l->setContentsMargins(0, 0, 0, 0);
 
-    setMainFlow();              // MAIN
-    setSignInPage();            // SIGNIN
+    // MAIN
+    flowPages.addWidget(makeMainFlow(&flowPages));
+    // SIGNIN
+    flowPages.addWidget(makeSignInPage(&flowPages));
 
-    /*auto calendars = google.getOwnedCalendarList();
+    // TIMERS
+    QPixmap icon_img = QPixmap(":/resources/images/timer_icon.png");
+    QIcon icon(icon_img);
+    mainTabs.addTab(makeTimersPage(&mainTabs), icon, "&1");
+    mainTabs.setTabToolTip(0, "Tooltip");
+    mainTabs.addTab(new QWidget(&mainTabs), icon, "&2");
+    mainTabs.addTab(new QWidget(&mainTabs), icon, "&3");
+
+    // COSTUMIZE TABS
+    mainTabs.setTabPosition(QTabWidget::South);
+    mainTabs.setMovable(true);
+    mainTabs.setTabShape(QTabWidget::TabShape::Rounded);
+    mainTabs.setUsesScrollButtons(false);
+
+    // onResize
+    connect(this, &MainWindow::onResize, [=](){
+        int iconSize = (80 * this->width()) / 800;
+
+        mainTabs.setIconSize(QSize(iconSize,iconSize));
+
+        int nTabs = mainTabs.count();
+        int width = this->width()/nTabs;
+        mainTabs.setStyleSheet("QTabBar::tab { height: 3em; width: " + QString::number((width+iconSize)/2) + "px; "
+                           //"               background-color: " + colourDef + ";"
+                               "color: transparent; "
+                           "               border: none; "
+                           "               padding-left: " + QString::number((width-iconSize)/2) + "px;"
+                                         " }"
+                           //"QTabBar::tab:selected { background-color: " + colourSelected + " }"
+                           );
+    });
+
+
+    /*auto calendars = google.getOwnedCalendarLists();
     GoogleCalendar::Event event;
     event.start = QDateTime::fromString("2020-12-12T00:00:00", Qt::ISODate);
     event.end = QDateTime::fromString("2020-12-12T12:00:00", Qt::ISODate);
@@ -62,28 +99,44 @@ void MainWindow::resizeEvent(QResizeEvent* event)
    emit onResize();
 }
 
-void MainWindow::setMainFlow()
+QWidget* MainWindow::makeMainFlow(QWidget* parent)
 {
-    QWidget* widget = new QWidget(&flowPages);
-    AutoArrangedGridLayout *grid_layout = new AutoArrangedGridLayout(widget);
-    grid_layout->setColumns(2);
-    grid_layout->setContentsMargins(10, 0, 10, 0);
-    grid_layout->setSpacing(0);
+    mainTabs.setParent(parent);
+    return &mainTabs;
+}
 
-    QVector<TimerButton*> buttons;
-    for(int i = 0; i < 20; ++i){
-        TimerButton *button = new TimerButton(widget);
-        buttons.push_back(button);
-        //button->setMinimumHeight();
+QWidget* MainWindow::makeTimersPage(QWidget * parent)
+{
+    auto calendars = google.getOwnedCalendarList();
+
+    QScrollArea* scrollArea = new QScrollArea(parent);
+    scrollArea->setContentsMargins(0,0,0,0);
+
+    AutoArrangedGridLayout *grid_layout = new AutoArrangedGridLayout(scrollArea);
+    grid_layout->setColumns(calendars.size() <= 3 ? 1 : 2);
+    int spacing = 20;
+    grid_layout->setContentsMargins(spacing, spacing, spacing, spacing);
+    grid_layout->setSpacing(spacing);
+
+    scrollArea->setLayout(grid_layout);
+
+    QVector<TimerButton*> buttons(calendars.size());
+    for(int i = 0; i < calendars.size(); ++i){
+        TimerButton *button = new TimerButton(scrollArea);
+        buttons[i] = button;
         button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         grid_layout->addWidget(button);
     }
+
     for(int i = 0; i < buttons.size(); ++i){
         connect(buttons[i], &QPushButton::pressed, [=](){
             //qDebug() << google.getCalendarList();
             //flowPages.setCurrentIndex(SIGNIN);
-            foreach(auto b, buttons)
-                b->reset();
+            //foreach(auto b, buttons)
+                //b->reset();
+            //if(active_timer_button != nullptr && active_timer_button != buttons[i])
+            if(active_timer_button != nullptr)
+               active_timer_button->reset();
 
             if(active_timer_button == buttons[i]){
                 buttons[i]->reset();
@@ -91,24 +144,37 @@ void MainWindow::setMainFlow()
             } else {
                 buttons[i]->start();
                 active_timer_button = buttons[i];
-                update_timer.start(20);
+                update_timer.start(20); // every 20ms
             }
         });
     }
 
-    flowPages.addWidget(widget);
-
     connect(&update_timer, &QTimer::timeout, [=](){
         if(active_timer_button != nullptr){
             active_timer_button->update();
-            update_timer.start(20);
+            update_timer.start(20); // every 20ms
         }
     });
+
+    // onResize
+    connect(this, &MainWindow::onResize, [=](){
+        //int width = this->width();
+        for(int i = 0; i < calendars.size(); ++i){
+            buttons[i]->setStyleSheet("background-color: " + calendars[i].color_hex + ";"
+                                      "padding: 0.5em;"
+                                      "border-radius: 1em;"
+                                      "width: ");
+        }
+    });
+
+
+
+    return scrollArea;
 }
 
-void MainWindow::setSignInPage()
+QWidget* MainWindow::makeSignInPage(QWidget* parent)
 {
-    QWidget* widget = new QWidget(&flowPages);
+    QWidget* widget = new QWidget(parent);
     QVBoxLayout*l = new QVBoxLayout();
     l->setAlignment(Qt::AlignCenter);
     widget->setLayout(l);
@@ -129,6 +195,8 @@ void MainWindow::setSignInPage()
         flowPages.setCurrentIndex(MAIN);
     });
 
+    QString colour = "rgb(0, 144, 0);";
+
     // LOGO
     QLabel* logo = new QLabel(widget);
     QPixmap img = QPixmap(":/resources/images/calefficient_logo_1024_transparent.png");
@@ -144,7 +212,7 @@ void MainWindow::setSignInPage()
     // BUTTON
     QPushButton *button = new QPushButton("Sign In to Google Calendar", widget);
     button->setStyleSheet("background-color: rgb(255, 255, 255);"
-                          "color: rgb(0, 144, 0);"
+                          "color: " + colour +
                           "padding: 0.5em;"
                           "border-radius: 0.5em;");
 
@@ -163,11 +231,11 @@ void MainWindow::setSignInPage()
     });
 
     // onResize
-    connect(this, &MainWindow::onResize, [widget, logo, img, name, spacer, this](){
+    connect(this, &MainWindow::onResize, [=](){
         // int size = std::min(this->width(), this->height());
         int fontSize = (14 * this->height()) / 600;
 
-        widget->setStyleSheet("background-color: rgb(0, 144, 0);"
+        widget->setStyleSheet("background-color: " + colour +
                               "font: bold " + QString::number(fontSize) + "px;"
                               "font-family: \"Roboto\";");
 
@@ -187,7 +255,7 @@ void MainWindow::setSignInPage()
     l->addSpacerItem(spacer);
     l->addWidget(button);
 
-    flowPages.addWidget(widget);
+    return widget;
 }
 
 #if USE_INTERNAL_BROWSER

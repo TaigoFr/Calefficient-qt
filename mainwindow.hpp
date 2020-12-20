@@ -5,6 +5,7 @@
 #include <QStackedWidget>
 #include <QPushButton>
 #include <QTimer>
+#include <QTabWidget>
 
 #include "googlecalendar.hpp"
 #include "timerbutton.hpp"
@@ -26,6 +27,7 @@ class MainWindow : public QMainWindow
     enum{
         MAIN
         , SIGNIN
+        , TIMERS
 #if USE_INTERNAL_BROWSER
         , WEB
 #endif
@@ -39,8 +41,9 @@ signals:
     void onResize();
 
 private:
-    void setMainFlow();
-    void setSignInPage();
+    QWidget* makeMainFlow(QWidget* parent);
+    QWidget* makeTimersPage(QWidget* parent);
+    QWidget* makeSignInPage(QWidget* parent);
 #if USE_INTERNAL_BROWSER
     void setAuthenticationPage();
 #endif
@@ -51,6 +54,7 @@ private:
     GoogleCalendar google;
 
     QStackedWidget flowPages;
+    QTabWidget mainTabs;
 
     QTimer update_timer;
     TimerButton* active_timer_button;

@@ -2,5 +2,6 @@
     <qresource prefix="/">
         <file>private/Calefficient_client_secret.json</file>
         <file>resources/images/calefficient_logo_1024_transparent.png</file>
+        <file>resources/images/timer_icon.png</file>
     </qresource>
 </RCC>

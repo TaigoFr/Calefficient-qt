@@ -8,11 +8,13 @@
 
 class TimerButton : public QPushButton
 {
+    static const QString timeFormat;
+
 public:
     TimerButton(QWidget* parent = nullptr) : QPushButton(parent)
     {
         reset();
-        this->setText(display_timer.toString("hh:mm:ss,zzz"));
+        this->setText(display_timer.toString(timeFormat));
     }
 
     void start(){
@@ -31,7 +33,7 @@ public:
 
 private:
     void updateText(){
-        this->setText(display_timer.toString("hh:mm:ss,zzz"));
+        this->setText(display_timer.toString(timeFormat));
     }
 
 private:
