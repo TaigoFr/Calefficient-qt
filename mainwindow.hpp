@@ -6,9 +6,13 @@
 #include <QPushButton>
 #include <QTimer>
 #include <QTabWidget>
+#include <QScrollArea>
 
 #include "googlecalendar.hpp"
 #include "timerbutton.hpp"
+
+#include <QTableWidget>
+//#include "autoarrangedgridlayout.hpp"
 
 #define USE_INTERNAL_BROWSER false
 
@@ -37,6 +41,9 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+    int heightPercentage(float perc){return perc * this->height();}
+    int widthPercentage(float perc){return perc * this->width();}
+
 signals:
     void onResize();
 
@@ -47,7 +54,13 @@ private:
 #if USE_INTERNAL_BROWSER
     void setAuthenticationPage();
 #endif
+
+    void updateTimersPage();
+
     void resizeEvent(QResizeEvent* event);
+
+    void enterEvent(QEvent * event);
+    bool event(QEvent* event);
 
 private:
     Ui::MainWindow *ui;
@@ -55,9 +68,15 @@ private:
 
     QStackedWidget flowPages;
     QTabWidget mainTabs;
+    QScrollArea scrollArea;
+
+    QTableWidget tableWidget;
+    //AutoArrangedGridLayout grid_layout;
 
     QTimer update_timer;
     TimerButton* active_timer_button;
+
+    int scrollValue; // saved to know if buttons were properly pressed or not
 
 #if USE_INTERNAL_BROWSER
     QWebEngineView webView;

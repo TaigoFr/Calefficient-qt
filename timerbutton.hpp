@@ -11,32 +11,14 @@ class TimerButton : public QPushButton
     static const QString timeFormat;
 
 public:
-    TimerButton(QWidget* parent = nullptr) : QPushButton(parent)
-    {
-        reset();
-        this->setText(display_timer.toString(timeFormat));
-    }
+    TimerButton(const QString& a_name, QWidget* parent = nullptr);
 
-    void start(){
-        time = QDateTime::currentDateTime();
-    }
-
-    void update(){
-        display_timer = display_timer.fromMSecsSinceEpoch(time.msecsTo(QDateTime::currentDateTime())).toTimeSpec(Qt::TimeSpec::UTC);
-        updateText();
-    }
-
-    void reset(){
-        display_timer = QDateTime::fromMSecsSinceEpoch(0).toTimeSpec(Qt::TimeSpec::UTC);
-        updateText();
-    }
+    void start();
+    void updateText();
+    void reset();
 
 private:
-    void updateText(){
-        this->setText(display_timer.toString(timeFormat));
-    }
-
-private:
+    QString name;
     QDateTime time;
     QDateTime display_timer;
 };
