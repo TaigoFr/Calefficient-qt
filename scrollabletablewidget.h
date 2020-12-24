@@ -8,7 +8,7 @@
 class ScrollableTableWidget : public QTableWidget
 {
 public:
-    ScrollableTableWidget(QWidget * parent = nullptr);
+    ScrollableTableWidget(const QSize& size = QSize(0, 0), QWidget * parent = nullptr);
 
     void addWidget(QWidget * widget);
     int widgetCount();
@@ -16,6 +16,8 @@ public:
 
     void resetScrolled();
     bool getScrolled();
+
+    void setWindowSize(const QSize& size);
 
 private:
     bool viewportEvent(QEvent *event) override;
@@ -30,6 +32,9 @@ private:
     QTimer drag_timer;
     double drag_velocity_start;
     QTime drag_time_start;
+
+protected:
+    QSize window_size;
 };
 
 #endif // SCROLLABLETABLEWIDGET_H

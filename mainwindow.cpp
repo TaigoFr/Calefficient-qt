@@ -154,7 +154,8 @@ QWidget* MainWindow::makeTimersPage(QWidget * parent)
 
     // onResize (needed because during app startup, window size is not yet defined
     connect(this, &MainWindow::onResize, [=](){
-        timersTable.updateStyle(this->width(), this->height());
+        timersTable.setWindowSize(this->size());
+        timersTable.updateStyle();
     });
 
     return &timersTable;
@@ -256,7 +257,7 @@ void MainWindow::updateTimersPage()
     timersTable.clear();
     timersTable.setColumnCount(calendars.size() <= 3 ? 1 : 2);
 
-    int repeat = 10;
+    int repeat = 1;
 
     QVector<TimerButton*> buttons(calendars.size());
     for (int r=0; r<repeat ; ++r) {
@@ -269,7 +270,7 @@ void MainWindow::updateTimersPage()
         }
     }
 
-    timersTable.updateStyle(this->width(), this->height());
+    timersTable.updateStyle();
 }
 
 #if USE_INTERNAL_BROWSER

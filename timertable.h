@@ -10,11 +10,11 @@
 class TimerTable : public ScrollableTableWidget
 {
 public:
-    TimerTable(QWidget * parent = nullptr);
+    TimerTable(const QSize& size = QSize(0, 0), QWidget * parent = nullptr);
 
     void addButton(TimerButton * button);
 
-    void updateStyle(int width, int height);
+    void updateStyle();
 
     void clear();
 

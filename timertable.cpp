@@ -2,7 +2,7 @@
 
 #include <QScrollBar>
 
-TimerTable::TimerTable(QWidget * parent) : ScrollableTableWidget(parent), active_timer_button(nullptr)
+TimerTable::TimerTable(const QSize& size, QWidget * parent) : ScrollableTableWidget(size, parent), active_timer_button(nullptr)
 {
     connect(&update_timer, &QTimer::timeout, [=](){
         if(active_timer_button != nullptr)
@@ -40,13 +40,13 @@ void TimerTable::addButton(TimerButton *button)
     });
 }
 
-void TimerTable::updateStyle(int width, int height)
+void TimerTable::updateStyle()
 {
 
     qDebug() << "UPDATINGGGGGGGGGGGGGG";
 
-    int spacing = width * 0.02;
-    int button_width = width * 0.44;
+    int spacing = window_size.width() * 0.02;
+    int button_width = window_size.width() * 0.44;
     //int iconSize = widthPercentage(0.05);
 
     setStyleSheet("QTableWidget::item { padding: " + QString::number(spacing) + "px }");
@@ -60,7 +60,7 @@ void TimerTable::updateStyle(int width, int height)
                                 "background-color: " + color.name() + ";"
                                 //"background-color: rgb(" + QString::number(128+100*std::sin(300*i)) + "," + QString::number(128+100*std::sin(200*i)) + "," + QString::number(128+100*std::sin(400*i)) + ");"
                                   "color: rgb(255,255,255);"
-                                  "font: bold " + QString::number(height * 0.025) + "px;"
+                                  "font: bold " + QString::number(window_size.height() * 0.025) + "px;"
                                   //"padding: 0.5em;"
                                   "border-radius: 1em;"
                                   "min-width: " + QString::number(button_width) + "px;"
