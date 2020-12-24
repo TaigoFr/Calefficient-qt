@@ -4,12 +4,12 @@
 const QString TimerButton::timeFormat = "hh:mm:ss";
 //const QString TimerButton::timeFormat = "hh:mm:ss,zzz";
 
-TimerButton::TimerButton(const QString& a_name, QWidget* parent) : QPushButton(parent), name(a_name)
+TimerButton::TimerButton(const GoogleCalendar::Calendar& a_cal, QWidget* parent) : QPushButton(parent), calendar(a_cal)
 {
     static int max_characters = 11;
     name = "";
 
-    QStringList list = a_name.split(QRegExp("\\s+"), Qt::KeepEmptyParts);
+    QStringList list = calendar.name.split(QRegExp("\\s+"), Qt::KeepEmptyParts);
     for(int s=0; s<list.size(); ++s){
         for(int i=0; i<list[s].size(); i+=max_characters){
             name += list[s].mid(i,max_characters);
@@ -38,4 +38,9 @@ void TimerButton::reset(){
     display_timer = QDateTime::fromMSecsSinceEpoch(0).toTimeSpec(Qt::TimeSpec::UTC);
     this->setText(name);
     //updateText();
+}
+
+const GoogleCalendar::Calendar &TimerButton::getCalendar()
+{
+    return calendar;
 }

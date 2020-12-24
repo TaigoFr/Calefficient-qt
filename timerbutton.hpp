@@ -6,18 +6,23 @@
 #include <QDebug>
 #include <QTimeZone>
 
+#include "googlecalendar.hpp"
+
 class TimerButton : public QPushButton
 {
     static const QString timeFormat;
 
 public:
-    TimerButton(const QString& a_name, QWidget* parent = nullptr);
+    TimerButton(const GoogleCalendar::Calendar& a_cal, QWidget* parent = nullptr);
 
     void start();
     void updateText();
     void reset();
 
+    const GoogleCalendar::Calendar &getCalendar();
+
 private:
+    GoogleCalendar::Calendar calendar;
     QString name;
     QDateTime time;
     QDateTime display_timer;

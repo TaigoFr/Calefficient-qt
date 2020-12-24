@@ -3,16 +3,10 @@
 
 #include <QMainWindow>
 #include <QStackedWidget>
-#include <QPushButton>
-#include <QTimer>
 #include <QTabWidget>
-#include <QScrollArea>
 
 #include "googlecalendar.hpp"
-#include "timerbutton.hpp"
-
-#include <QTableWidget>
-//#include "autoarrangedgridlayout.hpp"
+#include "timertable.h"
 
 #define USE_INTERNAL_BROWSER false
 
@@ -41,8 +35,8 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    int heightPercentage(float perc){return perc * this->height();}
-    int widthPercentage(float perc){return perc * this->width();}
+    inline int heightPercentage(float perc) const{return perc * this->height();}
+    inline int widthPercentage(float perc) const{return perc * this->width();}
 
 signals:
     void onResize();
@@ -68,15 +62,8 @@ private:
 
     QStackedWidget flowPages;
     QTabWidget mainTabs;
-    QScrollArea scrollArea;
 
-    QTableWidget tableWidget;
-    //AutoArrangedGridLayout grid_layout;
-
-    QTimer update_timer;
-    TimerButton* active_timer_button;
-
-    int scrollValue; // saved to know if buttons were properly pressed or not
+    TimerTable timersTable;
 
 #if USE_INTERNAL_BROWSER
     QWebEngineView webView;
