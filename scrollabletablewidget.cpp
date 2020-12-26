@@ -1,4 +1,4 @@
-#include "scrollabletablewidget.h"
+#include "scrollabletablewidget.hpp"
 
 #include <QDebug>
 

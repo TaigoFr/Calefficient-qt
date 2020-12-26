@@ -3,6 +3,7 @@
 #include "timerbutton.hpp"
 
 #include <QLabel>
+#include <QListWidget>
 #include <QSpacerItem>
 #include <QVBoxLayout>
 #include <QDebug>
@@ -107,7 +108,7 @@ QWidget* MainWindow::makeMainFlow(QWidget* parent)
     mainTabs.addTab(makeTimersPage(&mainTabs), QIcon(QPixmap(":/resources/images/timer_icon.png")), timers_id);
     mainTabs.setTabToolTip(0, "Tooltip");
     mainTabs.addTab(new QWidget(&mainTabs), QIcon(QPixmap(":/resources/images/stats_icon.png")), "&2");
-    mainTabs.addTab(new QWidget(&mainTabs), QIcon(QPixmap(":/resources/images/settings_icon.png")), "&3");
+    mainTabs.addTab(makeSettingsPage(&mainTabs), QIcon(QPixmap(":/resources/images/settings_icon.png")), "&3");
 
     // update Timers page when change
     connect(&mainTabs, &QTabWidget::currentChanged, [=](int index){
@@ -244,6 +245,19 @@ QWidget* MainWindow::makeSignInPage(QWidget* parent)
     l->addWidget(button);
 
     return widget;
+}
+
+
+QWidget* MainWindow::makeSettingsPage(QWidget * parent)
+{
+    QListWidget *listWidget = new QListWidget(parent);
+    listWidget->addItem(new QListWidgetItem(tr("1"), listWidget));
+    listWidget->addItem(new QListWidgetItem(tr("2"), listWidget));
+    listWidget->addItem(new QListWidgetItem(tr("3"), listWidget));
+
+    listWidget->setDragDropMode(QAbstractItemView::InternalMove);
+
+    return listWidget;
 }
 
 void MainWindow::updateTimersPage()

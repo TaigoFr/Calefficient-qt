@@ -1,7 +1,7 @@
 #ifndef TIMERTABLE_H
 #define TIMERTABLE_H
 
-#include "scrollabletablewidget.h"
+#include "scrollabletablewidget.hpp"
 #include "timerbutton.hpp"
 
 #include <QPushButton>

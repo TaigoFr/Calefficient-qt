@@ -1,4 +1,4 @@
-#include "timertable.h"
+#include "timertable.hpp"
 
 #include <QScrollBar>
 
@@ -60,7 +60,7 @@ void TimerTable::updateStyle()
                                 "background-color: " + color.name() + ";"
                                 //"background-color: rgb(" + QString::number(128+100*std::sin(300*i)) + "," + QString::number(128+100*std::sin(200*i)) + "," + QString::number(128+100*std::sin(400*i)) + ");"
                                   "color: rgb(255,255,255);"
-                                  "font: bold " + QString::number(window_size.height() * 0.025) + "px;"
+                                  "font: bold " + QString::number((int)(window_size.height() * 0.025)) + "px;"
                                   //"padding: 0.5em;"
                                   "border-radius: 1em;"
                                   "min-width: " + QString::number(button_width) + "px;"

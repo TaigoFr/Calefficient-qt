@@ -6,7 +6,7 @@
 #include <QTabWidget>
 
 #include "googlecalendar.hpp"
-#include "timertable.h"
+#include "timertable.hpp"
 
 #define USE_INTERNAL_BROWSER false
 
@@ -45,6 +45,7 @@ private:
     QWidget* makeMainFlow(QWidget* parent);
     QWidget* makeTimersPage(QWidget* parent);
     QWidget* makeSignInPage(QWidget* parent);
+    QWidget* makeSettingsPage(QWidget * parent);
 #if USE_INTERNAL_BROWSER
     void setAuthenticationPage();
 #endif
