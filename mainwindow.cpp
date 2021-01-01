@@ -7,6 +7,7 @@
 #include <QSpacerItem>
 #include <QVBoxLayout>
 #include <QDebug>
+#include <QToolButton>
 
 #if USE_INTERNAL_BROWSER
 #include <QWebEngineView>
@@ -18,10 +19,13 @@
 // REVER OS CONNECTS TODOS E GARANTIR QUE O QT NÃO ESTÁ A ACUMULAR CONNECTS (POR ENTRAR VÁRIAS VEZES NA MESMA FUNÇÃO)
 // ADD CONST WHEREVER POSSIBLE
 
+#include <QStatusBar>
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , google(":/private/Calefficient_client_secret.json")
+    , flowPages(this)
     #if USE_INTERNAL_BROWSER
     , webView(this)
     #endif
@@ -85,15 +89,10 @@ bool MainWindow::event(QEvent *event)
     //qDebug() << "EVENT " << i++;
     //qDebug() << event->type();
     /*
-    if(event->type() == QEvent::HoverMove){
-        QHoverEvent *hover = static_cast<QHoverEvent*>(event);
-        qDebug() << hover->oldPos();
-        qDebug() << hover->pos();
-        int delta = hover->pos().y() - hover->oldPos().y();
-        if(abs(delta) < 100){
-            tableWidget.verticalScrollBar()->setValue(tableWidget.verticalScrollBar()->value() - delta);
-        }
-
+    if(event->type()==QEvent::KeyPress){
+        QKeyEvent * key = static_cast<QKeyEvent*>(event);
+        qDebug() << key->key();
+        qDebug() << key->text();
     }
     */
     return QWidget::event(event);
@@ -105,10 +104,10 @@ QWidget* MainWindow::makeMainFlow(QWidget* parent)
 
     // TIMERS
     QString timers_id = "&1";
-    mainTabs.addTab(makeTimersPage(&mainTabs), QIcon(QPixmap(":/resources/images/timer_icon.png")), timers_id);
+    mainTabs.addTab(makeTimersPage(&mainTabs), QIcon(":/resources/images/timer_icon.png"), timers_id);
     mainTabs.setTabToolTip(0, "Tooltip");
-    mainTabs.addTab(new QWidget(&mainTabs), QIcon(QPixmap(":/resources/images/stats_icon.png")), "&2");
-    mainTabs.addTab(makeSettingsPage(&mainTabs), QIcon(QPixmap(":/resources/images/settings_icon.png")), "&3");
+    mainTabs.addTab(new QWidget(&mainTabs), QIcon(":/resources/images/stats_icon.png"), "&2");
+    mainTabs.addTab(makeSettingsPage(&mainTabs), QIcon(":/resources/images/settings_icon.png"), "&3");
 
     // update Timers page when change
     connect(&mainTabs, &QTabWidget::currentChanged, [=](int index){
@@ -155,8 +154,7 @@ QWidget* MainWindow::makeTimersPage(QWidget * parent)
 
     // onResize (needed because during app startup, window size is not yet defined
     connect(this, &MainWindow::onResize, [=](){
-        timersTable.setWindowSize(this->size());
-        timersTable.updateStyle();
+        timersTable.updateStyle(this->size());
     });
 
     return &timersTable;
@@ -266,25 +264,10 @@ void MainWindow::updateTimersPage()
         return;
 
     auto calendars = google.getOwnedCalendarList();
+    timersTable.setButtons(calendars);
     //QVector<int> calendars(100);
 
-    timersTable.clear();
-    timersTable.setColumnCount(calendars.size() <= 3 ? 1 : 2);
-
-    int repeat = 1;
-
-    QVector<TimerButton*> buttons(calendars.size());
-    for (int r=0; r<repeat ; ++r) {
-        for(int i = 0; i < calendars.size(); ++i){
-            TimerButton *button = new TimerButton(calendars[i], &timersTable);
-            buttons[i] = button;
-            button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-
-            timersTable.addButton(button);
-        }
-    }
-
-    timersTable.updateStyle();
+    timersTable.updateStyle(this->size());
 }
 
 #if USE_INTERNAL_BROWSER

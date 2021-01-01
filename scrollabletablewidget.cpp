@@ -7,6 +7,7 @@
 #include <QEvent>
 #include <QMouseEvent>
 #include <QTouchEvent>
+#include <QHeaderView>
 
 #include <cmath>
 
@@ -18,11 +19,10 @@
 #define DECAY_POWER 2.
 
 
-ScrollableTableWidget::ScrollableTableWidget(const QSize& size, QWidget * parent):
+ScrollableTableWidget::ScrollableTableWidget(QWidget * parent):
     m_widgetCount(0),
     drag_velocity_start(0.),
-    drag_time_start(QTime::currentTime()),
-    window_size(size)
+    drag_time_start(QTime::currentTime())
 {
     resetScrolled();
 
@@ -38,6 +38,7 @@ ScrollableTableWidget::ScrollableTableWidget(const QSize& size, QWidget * parent
 
     // disable selection of cells
     setSelectionMode(QAbstractItemView::NoSelection);
+    setFocusPolicy(Qt::NoFocus);
 
     // hide scrollBars
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -49,11 +50,11 @@ ScrollableTableWidget::ScrollableTableWidget(const QSize& size, QWidget * parent
     //setAutoScroll(false);
 
     connect(&drag_timer, &QTimer::timeout, [=](){
-        double tmax = MIN_TIME + std::min(abs(drag_velocity_start) / (MAX_VELOCITY * window_size.width() / 1080.), 1.) * (MAX_TIME - MIN_TIME);
+        double tmax = MIN_TIME + std::min(abs(drag_velocity_start) / (MAX_VELOCITY * parentWidget()->width() / 1080.), 1.) * (MAX_TIME - MIN_TIME);
         double velocity = drag_velocity_start *
                 (1. - std::min(1., std::pow(drag_time_start.msecsTo(QTime::currentTime())/ tmax , DECAY_POWER)));
 
-        if(abs(velocity) < MIN_VELOCITY * window_size.width() / 1080.){
+        if(abs(velocity) < MIN_VELOCITY * parentWidget()->width() / 1080.){
             drag_timer.stop();
         }
         else{
@@ -62,6 +63,8 @@ ScrollableTableWidget::ScrollableTableWidget(const QSize& size, QWidget * parent
             //qDebug() << "NEW VEL/VAL: " << velocity << "/" << scroll_value << " | " << window_size.height();
         }
     });
+
+    horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 }
 
 void ScrollableTableWidget::addWidget(QWidget *widget)
@@ -76,7 +79,7 @@ void ScrollableTableWidget::addWidget(QWidget *widget)
     ++m_widgetCount;
 }
 
-int ScrollableTableWidget::widgetCount()
+int ScrollableTableWidget::widgetCount() const
 {
     return m_widgetCount;
 }
@@ -102,14 +105,9 @@ void ScrollableTableWidget::resetScrolled()
     scrolled = false;
 }
 
-bool ScrollableTableWidget::getScrolled()
+bool ScrollableTableWidget::getScrolled() const
 {
     return scrolled;
-}
-
-void ScrollableTableWidget::setWindowSize(const QSize& size)
-{
-    window_size = size;
 }
 
 bool ScrollableTableWidget::viewportEvent(QEvent *event)
@@ -178,7 +176,7 @@ void ScrollableTableWidget::scrollEvent(QEvent *event)
         savedTimes[posIndex % saveCount] = QTime::currentTime();
         ++posIndex;
 
-        if(abs(originalBarPos - newBarPos) > 0.01 * window_size.height())
+        if(abs(originalBarPos - newBarPos) > 0.01 * parentWidget()->height())
             scrolled = true;
     }
     else if(event->type() == QEvent::MouseButtonRelease){
@@ -187,7 +185,7 @@ void ScrollableTableWidget::scrollEvent(QEvent *event)
             drag_time_start = savedTimes[(posIndex-1) % saveCount];
             drag_velocity_start = ((double)(savedPositions[(posIndex-1) % saveCount] - savedPositions[posIndex % saveCount])) /
                     savedTimes[posIndex % saveCount].msecsTo(drag_time_start);
-            drag_velocity_start = (drag_velocity_start < 0. ? -1. : 1.) * std::min(abs(drag_velocity_start), MAX_VELOCITY * window_size.width() / 1080.);
+            drag_velocity_start = (drag_velocity_start < 0. ? -1. : 1.) * std::min(abs(drag_velocity_start), MAX_VELOCITY * parentWidget()->width() / 1080.);
             //qDebug() << "VELOCITY";
             //qDebug() << drag_velocity_start << " (" << savedPositions[(posIndex-1) % saveCount] << " | " << savedPositions[posIndex % saveCount] << ")("
                      //<< drag_time_start << " | " << savedTimes[posIndex % saveCount] << ")";

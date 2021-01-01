@@ -1,6 +1,5 @@
 #include "timerbutton.hpp"
 
-
 const QString TimerButton::timeFormat = "hh:mm:ss";
 //const QString TimerButton::timeFormat = "hh:mm:ss,zzz";
 
@@ -22,6 +21,8 @@ TimerButton::TimerButton(const GoogleCalendar::Calendar& a_cal, QWidget* parent)
 
     reset();
     //this->setText(name + "\n\n" + display_timer.toString(timeFormat));
+
+
 }
 
 void TimerButton::start(){

@@ -23,6 +23,7 @@ public:
 
 private:
     GoogleCalendar::Calendar calendar;
+    int calendar_index;
     QString name;
     QDateTime time;
     QDateTime display_timer;

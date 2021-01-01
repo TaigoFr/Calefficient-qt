@@ -10,13 +10,16 @@
 class TimerTable : public ScrollableTableWidget
 {
 public:
-    TimerTable(const QSize& size = QSize(0, 0), QWidget * parent = nullptr);
+    TimerTable(QWidget * parent = nullptr);
 
-    void addButton(TimerButton * button);
+    void setButtons(const QVector<GoogleCalendar::Calendar>& a_cals);
 
-    void updateStyle();
+    void updateStyle(const QSize& window_size);
 
     void clear();
+
+private:
+    void addButton(const QVector<GoogleCalendar::Calendar>& a_cals, int cal_index);
 
 private:
     QTimer update_timer;
