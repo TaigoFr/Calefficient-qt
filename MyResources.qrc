@@ -7,5 +7,7 @@
         <file>resources/images/stats_icon.png</file>
         <file>resources/images/play_icon.png</file>
         <file>resources/images/transparent.png</file>
+        <file>resources/images/right_arrow.png</file>
+        <file>resources/images/down_arrow.png</file>
     </qresource>
 </RCC>

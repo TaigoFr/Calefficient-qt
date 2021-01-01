@@ -1,9 +1,14 @@
 #include "mainwindow.hpp"
 #include "ui_mainwindow.h"
 #include "timerbutton.hpp"
+#include "scrollabletablewidget.hpp"
+
+#include "collapsible.h"
 
 #include <QLabel>
 #include <QListWidget>
+#include <QComboBox>
+#include <QCheckBox>
 #include <QSpacerItem>
 #include <QVBoxLayout>
 #include <QDebug>
@@ -248,14 +253,109 @@ QWidget* MainWindow::makeSignInPage(QWidget* parent)
 
 QWidget* MainWindow::makeSettingsPage(QWidget * parent)
 {
-    QListWidget *listWidget = new QListWidget(parent);
-    listWidget->addItem(new QListWidgetItem(tr("1"), listWidget));
-    listWidget->addItem(new QListWidgetItem(tr("2"), listWidget));
-    listWidget->addItem(new QListWidgetItem(tr("3"), listWidget));
+    /*
+    listWidget->setStyleSheet("font: 30px");
+    //listWidget->setDragDropMode(QAbstractItemView::InternalMove);
+    //listWidget->setAcceptDrops(true);
+    //listWidget->setDragEnabled(true);
+    */
 
-    listWidget->setDragDropMode(QAbstractItemView::InternalMove);
+    ScrollableTableWidget* settings_widget = new ScrollableTableWidget(parent);
+    settings_widget->setColumnCount(1);
 
-    return listWidget;
+    Collapsible* priorities_section = new Collapsible(settings_widget);
+    QLabel* priorities_section_header_label = new QLabel("Priorities", priorities_section);
+    QVBoxLayout* priorities_section_content_layout = new QVBoxLayout(priorities_section);
+    QListWidget *priorities_section_listWidget = new QListWidget(priorities_section);
+    QListWidgetItem* item1 = new QListWidgetItem("1", priorities_section_listWidget);
+    QListWidgetItem* item2 = new QListWidgetItem("2", priorities_section_listWidget);
+    QListWidgetItem* item3 = new QListWidgetItem("3", priorities_section_listWidget);
+    priorities_section_listWidget->addItem(item1);
+    priorities_section_listWidget->addItem(item2);
+    priorities_section_listWidget->addItem(item3);
+    priorities_section_listWidget->setFrameShape(QFrame::NoFrame);
+    priorities_section_content_layout->setContentsMargins(0, 0, 0, 0);
+
+    connect(priorities_section, &Collapsible::toggled, [=](){
+        settings_widget->resizeRowsToContents();
+    });
+
+    priorities_section_content_layout->addWidget(priorities_section_listWidget);
+    priorities_section->setHeader(priorities_section_header_label);
+    priorities_section->setContentLayout(priorities_section_content_layout);
+
+    QWidget* week_day_widget = new QWidget(settings_widget);
+    QHBoxLayout* week_day_layout = new QHBoxLayout(week_day_widget);
+    week_day_widget->setLayout(week_day_layout);
+    week_day_layout->addWidget(new QLabel("Week starting day"));
+    QSpacerItem* week_day_spacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Ignored);
+    week_day_layout->addSpacerItem(week_day_spacer);
+    QComboBox* week_day_combobox = new QComboBox(week_day_widget);
+    week_day_combobox->addItems(QStringList() << "Saturday" << "Sunday" << "Monday");
+    //week_day_combobox->setStyleSheet("QComboBox { border: 1px solid black; border-radius: 3px;  }"
+    //                                 "QComboBox::drop-down { border-top-right-radius: 3px; border-bottom-right-radius: 3px; }"
+    //                                 "QComboBox::down-arrow { image: url(:/resources/images/down_arrow.png); width: 12; height: 12; }");
+    week_day_layout->addWidget(week_day_combobox);
+
+    QWidget* auto_update_widget = new QWidget(settings_widget);
+    QHBoxLayout* auto_update_layout = new QHBoxLayout(auto_update_widget);
+    auto_update_widget->setLayout(auto_update_layout);
+    auto_update_layout->addWidget(new QLabel("Auto update"));
+    QSpacerItem* auto_update_spacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Ignored);
+    auto_update_layout->addSpacerItem(auto_update_spacer);
+    QCheckBox* auto_update_checkbox = new QCheckBox(auto_update_widget);
+    auto_update_checkbox->setCheckState(Qt::CheckState::Unchecked);
+    auto_update_layout->addWidget(auto_update_checkbox);
+
+    QWidget* calculate_empty_slots_widget = new QWidget(settings_widget);
+    QHBoxLayout* calculate_empty_slots_layout = new QHBoxLayout(calculate_empty_slots_widget);
+    calculate_empty_slots_widget->setLayout(calculate_empty_slots_layout);
+    calculate_empty_slots_layout->addWidget(new QLabel("Calculate empty slots"));
+    QSpacerItem* calculate_empty_slots_spacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Ignored);
+    calculate_empty_slots_layout->addSpacerItem(calculate_empty_slots_spacer);
+    QCheckBox* calculate_empty_slots_checkbox = new QCheckBox(calculate_empty_slots_widget);
+    calculate_empty_slots_checkbox->setCheckState(Qt::CheckState::Unchecked);
+    calculate_empty_slots_layout->addWidget(calculate_empty_slots_checkbox);
+
+    QWidget* warn_empty_slots_widget = new QWidget(settings_widget);
+    QHBoxLayout* warn_empty_slots_layout = new QHBoxLayout(warn_empty_slots_widget);
+    warn_empty_slots_widget->setLayout(warn_empty_slots_layout);
+    warn_empty_slots_layout->addWidget(new QLabel("Warn empty slots"));
+    QSpacerItem* warn_empty_slots_spacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Ignored);
+    warn_empty_slots_layout->addSpacerItem(warn_empty_slots_spacer);
+    QCheckBox* warn_empty_slots_checkbox = new QCheckBox(warn_empty_slots_widget);
+    warn_empty_slots_checkbox->setCheckState(Qt::CheckState::Unchecked);
+    warn_empty_slots_layout->addWidget(warn_empty_slots_checkbox);
+
+    QWidget* ignore_24h_events_widget = new QWidget(settings_widget);
+    QHBoxLayout* ignore_24h_events_layout = new QHBoxLayout(ignore_24h_events_widget);
+    ignore_24h_events_widget->setLayout(ignore_24h_events_layout);
+    ignore_24h_events_layout->addWidget(new QLabel("Ignore 24h+ events"));
+    QSpacerItem* ignore_24h_events_spacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Ignored);
+    ignore_24h_events_layout->addSpacerItem(ignore_24h_events_spacer);
+    QCheckBox* ignore_24h_events_checkbox = new QCheckBox(ignore_24h_events_widget);
+    ignore_24h_events_checkbox->setCheckState(Qt::CheckState::Unchecked);
+    ignore_24h_events_layout->addWidget(ignore_24h_events_checkbox);
+
+    QPushButton* reset_app_button = new QPushButton("Delete all data");
+    reset_app_button->setStyleSheet("QPushButton { background-color:red; color: white; }");
+
+    settings_widget->addWidget(priorities_section);
+    settings_widget->addWidget(week_day_widget);
+    settings_widget->addWidget(auto_update_widget);
+    settings_widget->addWidget(calculate_empty_slots_widget);
+    settings_widget->addWidget(warn_empty_slots_widget);
+    settings_widget->addWidget(ignore_24h_events_widget);
+    settings_widget->addWidget(reset_app_button);
+
+    connect(&mainTabs, &QTabWidget::currentChanged, [=](int index){
+        if(mainTabs.tabText(index) == "&3"){
+            settings_widget->setStyleSheet("font: " + QString::number((int)(this->height() * 0.025)) + "px;");
+            settings_widget->resizeRowsToContents();
+        }
+    });
+
+    return settings_widget;
 }
 
 void MainWindow::updateTimersPage()
