@@ -9,5 +9,6 @@
         <file>resources/images/transparent.png</file>
         <file>resources/images/right_arrow.png</file>
         <file>resources/images/down_arrow.png</file>
+        <file>resources/images/plus.png</file>
     </qresource>
 </RCC>

@@ -19,6 +19,7 @@
 
 // REVER OS CONNECTS TODOS E GARANTIR QUE O QT NÃO ESTÁ A ACUMULAR CONNECTS (POR ENTRAR VÁRIAS VEZES NA MESMA FUNÇÃO)
 // ADD CONST WHEREVER POSSIBLE
+// check all lambda's: do we really need '[=]' (to pass the whole environment)
 
 #include <QStatusBar>
 
@@ -48,6 +49,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     // SIGNIN
     flowPages.addWidget(makeSignInPage(&flowPages));
+
+    // TIMER_EDIT
+    flowPages.addWidget(makeTimerEditPage(&flowPages));
 
     /*auto calendars = google.getOwnedCalendarLists();
     GoogleCalendar::Event event;
@@ -112,8 +116,16 @@ QWidget* MainWindow::makeMainFlow(QWidget* parent)
 
     // update Timers page when change
     connect(&mainTabs, &QTabWidget::currentChanged, [=](int index){
-        if(mainTabs.tabText(index) == timers_id)
-            updateTimersPage();
+        static bool set = false;
+        if(!set && mainTabs.tabText(index) == timers_id){
+            if(!google.isSignedIn()){
+                qDebug() << "ERROR : NOT SIGNED IN WHILE MAKING TIMERS PAGE";
+                exit(1);
+            }
+            auto calendars = google.getOwnedCalendarList();
+            timersTable.setButtons(calendars);
+            set = true;
+        }
     });
 
     connect(&flowPages, &QStackedWidget::currentChanged, [=](int index){
@@ -156,6 +168,11 @@ QWidget* MainWindow::makeTimersPage(QWidget * parent)
     // onResize (needed because during app startup, window size is not yet defined
     connect(this, &MainWindow::onResize, [=](){
         timersTable.updateStyle(this->size());
+    });
+
+    connect(&timersTable, &TimerTable::buttonClicked, [this](TimerButton* button){
+        timerEditPage.setEditButton(button);
+        flowPages.setCurrentIndex(TIMER_EDIT);
     });
 
     return &timersTable;
@@ -214,16 +231,25 @@ QWidget* MainWindow::makeSettingsPage(QWidget * parent)
     return settings_widget;
 }
 
-void MainWindow::updateTimersPage()
+QWidget *MainWindow::makeTimerEditPage(QWidget *parent)
 {
-    if(!google.isSignedIn())
-        return;
+    timerEditPage.setParent(parent);
 
     auto calendars = google.getOwnedCalendarList();
-    timersTable.setButtons(calendars);
-    //QVector<int> calendars(100);
+    timerEditPage.setCalendars(calendars);
 
-    timersTable.updateStyle(this->size());
+    connect(&timerEditPage, &TimerEditPage::done, [this](int sucess){
+        if(sucess)
+            timersTable.updateStyle(this->size());
+        flowPages.setCurrentIndex(MAIN);
+    });
+
+    // onResize (needed because during app startup, window size is not yet defined
+    connect(this, &MainWindow::onResize, [=](){
+        timerEditPage.updateStyle(this->size());
+    });
+
+    return &timerEditPage;
 }
 
 #if USE_INTERNAL_BROWSER

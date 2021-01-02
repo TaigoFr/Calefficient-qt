@@ -9,6 +9,8 @@
 
 class TimerTable : public ScrollableTableWidget
 {
+    Q_OBJECT
+
 public:
     TimerTable(QWidget * parent = nullptr);
 
@@ -18,7 +20,11 @@ public:
 
     void clear();
 
+signals:
+    void buttonClicked(TimerButton*);
+
 private:
+    void setupButton(QAbstractButton *button);
     void addButton(const QVector<GoogleCalendar::Calendar>& a_cals, int cal_index);
 
 private:

@@ -13,17 +13,27 @@ class TimerButton : public QPushButton
     static const QString timeFormat;
 
 public:
+    struct Data{
+        QString name;
+        QString description;
+        GoogleCalendar::Calendar calendar;
+        //QColor color;
+    };
+
     TimerButton(const GoogleCalendar::Calendar& a_cal, QWidget* parent = nullptr);
+    TimerButton(const Data& a_data, QWidget* parent = nullptr);
 
     void start();
     void updateText();
     void reset();
+    void setName(QString name);
 
-    const GoogleCalendar::Calendar &getCalendar();
+    const Data &getData();
+    void setData(const Data&);
 
 private:
-    GoogleCalendar::Calendar calendar;
-    QString name;
+    Data data;
+    QString name_formatted;
     QDateTime time;
     QDateTime display_timer;
 };

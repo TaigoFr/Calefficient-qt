@@ -20,13 +20,13 @@
 
 
 ScrollableTableWidget::ScrollableTableWidget(QWidget * parent):
+    QTableWidget(parent),
     m_widgetCount(0),
     drag_velocity_start(0.),
     drag_time_start(QTime::currentTime())
 {
     resetScrolled();
 
-    setParent(parent);
     setFrameShape(QFrame::NoFrame);
 
     //setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Expanding);

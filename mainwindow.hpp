@@ -7,6 +7,7 @@
 
 #include "googlecalendar.hpp"
 #include "timertable.hpp"
+#include "timereditpage.hpp"
 
 #define USE_INTERNAL_BROWSER false
 
@@ -25,7 +26,7 @@ class MainWindow : public QMainWindow
     enum{
         MAIN
         , SIGNIN
-        , TIMERS
+        , TIMER_EDIT
 #if USE_INTERNAL_BROWSER
         , WEB
 #endif
@@ -43,11 +44,10 @@ private:
     QWidget* makeTimersPage(QWidget* parent);
     QWidget* makeSignInPage(QWidget* parent);
     QWidget* makeSettingsPage(QWidget * parent);
+    QWidget* makeTimerEditPage(QWidget* parent);
 #if USE_INTERNAL_BROWSER
     void setAuthenticationPage();
 #endif
-
-    void updateTimersPage();
 
     void resizeEvent(QResizeEvent* event);
 
@@ -62,6 +62,7 @@ private:
     QTabWidget mainTabs;
 
     TimerTable timersTable;
+    TimerEditPage timerEditPage;
 
 #if USE_INTERNAL_BROWSER
     QWebEngineView webView;
