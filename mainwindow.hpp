@@ -35,9 +35,6 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    inline int heightPercentage(float perc) const{return perc * this->height();}
-    inline int widthPercentage(float perc) const{return perc * this->width();}
-
 signals:
     void onResize();
 
