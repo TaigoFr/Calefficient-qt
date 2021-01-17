@@ -7,10 +7,9 @@
 #include <QDateTime>
 #include <QEventLoop>
 #include <QTimer>
+#include <QMutex>
 
 #include <algorithm> // std::sort
-
-#include <QDataStream>
 
 GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Calefficient", "GoogleCalendar")
 {
@@ -89,9 +88,10 @@ QVector<GoogleCalendar::Calendar> GoogleCalendar::getOwnedCalendarList()
 {
     QVector<Calendar> calendars;
 
-    QVariantMap options;
-    options["showHidden"] = true;
-    auto reply = request_EventLoop("https://www.googleapis.com/calendar/v3/users/me/calendarList", options);
+    Request request;
+    request.url = "https://www.googleapis.com/calendar/v3/users/me/calendarList";
+    request.parameters["showHidden"] = true;
+    auto reply = request_EventLoop(request);
     if(reply == nullptr)
         return calendars;
 
@@ -140,40 +140,62 @@ QVector<GoogleCalendar::Calendar> GoogleCalendar::getOwnedCalendarList()
     return calendars;
 }
 
-QVector<GoogleCalendar::Event> GoogleCalendar::getEvents(const GoogleCalendar::Calendar &cal, const QDateTime &start, const QDateTime &end, const QString& key)
+QVector<GoogleCalendar::Event> GoogleCalendar::getCalendarEvents(const GoogleCalendar::Calendar &cal, const QDateTime &start, const QDateTime &end, const QString& key)
 {
-    Q_ASSERT(cal.id != "");
-    Q_ASSERT(end > start);
+    return getMultipleCalendarEvents({&cal}, start, end, key)[0];
+}
 
-    QVector<GoogleCalendar::Event> events;
+QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvents(const QVector<const GoogleCalendar::Calendar*> &cals, const QDateTime &start, const QDateTime &end, const QString& key)
+{
+    QVector<QVector<GoogleCalendar::Event>> events;
+    QVector<Request> requests;
 
-    QVariantMap options;
-    //options["calendarId"] = cal.id;
-    options["orderBy"] = "startTime";
-    if(key!="")
-        options["q"] = key;
-    options["singleEvents"] = true;
-    options["timeMin"] = QDateTimeToRFC3339Format(start);
-    options["timeMax"] = QDateTimeToRFC3339Format(end);
-    auto reply = request_EventLoop("https://www.googleapis.com/calendar/v3/calendars/" + cal.id + "/events", options);
-    if(reply == nullptr)
-        return events;
+    for(auto *cal: cals)
+    {
+        Q_ASSERT(cal->id != "");
+        Q_ASSERT(end > start);
 
-    QString response = reply->readAll();
-    QJsonDocument json = QJsonDocument::fromJson(response.toUtf8());
-    QJsonObject object = json.object();
-    auto items = object["items"].toArray();
+        events.push_back(QVector<GoogleCalendar::Event>());
 
-    for(int i =0; i<items.size(); ++i){
-        auto item = items[i].toObject();
-
-        Event event;
-        UpdateEventFromJsonObject(event, item);
-        event.calendar = &cal;
-        events.push_back(event);
+        // https://developers.google.com/calendar/v3/reference/events/list
+        Request request;
+        request.url = "https://www.googleapis.com/calendar/v3/calendars/" + cal->id + "/events";
+        //options["calendarId"] = cal.id;
+        request.parameters["orderBy"] = "startTime";
+        if(key!="")
+            request.parameters["q"] = key;
+        request.parameters["singleEvents"] = true;
+        request.parameters["timeMin"] = QDateTimeToRFC3339Format(start);
+        request.parameters["timeMax"] = QDateTimeToRFC3339Format(end);
+        requests.push_back(request);
     }
 
-    // qDebug() << response;
+    auto replies = request_MultipleEventLoop(requests);
+
+    for(int i=0; i<cals.size(); ++i)
+    {
+        const Calendar *cal = cals[i];
+        QNetworkReply* reply = replies[i];
+
+        if(reply == nullptr)
+            return events;
+
+        QString response = reply->readAll();
+        QJsonDocument json = QJsonDocument::fromJson(response.toUtf8());
+        QJsonObject object = json.object();
+        auto items = object["items"].toArray();
+
+        for(int i =0; i<items.size(); ++i){
+            auto item = items[i].toObject();
+
+            Event event;
+            UpdateEventFromJsonObject(event, item);
+            event.calendar = cal;
+            events.back().push_back(event);
+        }
+
+        // qDebug() << response;
+    }
 
     return events;
 }
@@ -188,11 +210,12 @@ bool GoogleCalendar::moveEvent(GoogleCalendar::Event &event, const GoogleCalenda
 {
     Q_ASSERT(event.calendar != nullptr);
 
-    QVariantMap options;
-    options["destination"] = cal.id;
+    Request request;
+    request.url = "https://www.googleapis.com/calendar/v3/calendars/" + event.calendar->id + "/events/" + event.id + "/move";
+    request.parameters["destination"] = cal.id;
+    request.type = POST;
 
-    QNetworkReply* reply = request_EventLoop("https://www.googleapis.com/calendar/v3/calendars/" + event.calendar->id + "/events/" + event.id + "/move",
-                                             options, POST);
+    QNetworkReply* reply = request_EventLoop(request);
 
     // qDebug() << reply->readAll();
 
@@ -220,9 +243,10 @@ bool GoogleCalendar::deleteEvent(GoogleCalendar::Event &event)
 {
     Q_ASSERT(event.id != "");
 
-    QVariantMap options;
-    QNetworkReply* reply = request_EventLoop("https://www.googleapis.com/calendar/v3/calendars/" + event.calendar->id + "/events/" + event.id,
-                                             options, DELETE);
+    Request request;
+    request.url = "https://www.googleapis.com/calendar/v3/calendars/" + event.calendar->id + "/events/" + event.id;
+    request.type = DELETE;
+    QNetworkReply* reply = request_EventLoop(request);
 
     // qDebug() << reply->readAll();
 
@@ -230,56 +254,78 @@ bool GoogleCalendar::deleteEvent(GoogleCalendar::Event &event)
     return success;
 }
 
-QNetworkReply* GoogleCalendar::request_EventLoop(const QString &url, const QVariantMap& parameters, RequestType req, RequestParams req_type)
+QNetworkReply* GoogleCalendar::request_EventLoop(const Request &request){
+    return request_MultipleEventLoop({request})[0];
+}
+
+
+QVector<QNetworkReply*> GoogleCalendar::request_MultipleEventLoop(const QVector<Request>& requests)
 {
     //get(QUrl("https://www.googleapis.com/plus/v1/people/me"));
-    if(!checkAuthentication()) return nullptr;
+    if(!checkAuthentication())
+        return QVector<QNetworkReply*>(requests.size(), nullptr);
 
     QEventLoop loop;
     QTimer timer;
+    QMutex mutex;
+    int finished_requests = 0;
 
-    QNetworkReply* reply;
-    switch(req){
-    case GET:
-        Q_ASSERT(req_type == VARIANT_MAP);
-        reply = get(QUrl(url), parameters);
-        break;
-    case PUT:
-        if(req_type == VARIANT_MAP)
-            reply = put(QUrl(url), parameters);
-        else
-            reply = put(QUrl(url), QJsonDocument::fromVariant(parameters).toJson());
-        break;
-    case POST:
-        if(req_type == VARIANT_MAP)
-            reply = post(QUrl(url), parameters);
-        else
-            reply = post(QUrl(url), QJsonDocument::fromVariant(parameters).toJson());
-        break;
-    case DELETE:
-        Q_ASSERT(req_type == VARIANT_MAP);
-        reply = deleteResource(QUrl(url), parameters);
-        break;
-    default:
-        qDebug("Option not implemented");
-        exit(1);
+    int total = requests.size();
+    QVector<QNetworkReply*> replies(total);
+    for(int i=0; i<total; ++i){
+        const Request &request = requests[i];
+        // when we change the pointer QNetworkReply* we want it to be changed in 'replies' directly
+        QNetworkReply **reply = &replies[i];
+        switch(request.type){
+        case GET:
+            Q_ASSERT(request.format == VARIANT_MAP);
+            *reply = get(QUrl(request.url), request.parameters);
+            break;
+        case PUT:
+            if(request.format == VARIANT_MAP)
+                *reply = put(QUrl(request.url), request.parameters);
+            else
+                *reply = put(QUrl(request.url), QJsonDocument::fromVariant(request.parameters).toJson());
+            break;
+        case POST:
+            if(request.format == VARIANT_MAP)
+                *reply = post(QUrl(request.url), request.parameters);
+            else
+                *reply = post(QUrl(request.url), QJsonDocument::fromVariant(request.parameters).toJson());
+            break;
+        case DELETE:
+            Q_ASSERT(request.format == VARIANT_MAP);
+            *reply = deleteResource(QUrl(request.url), request.parameters);
+            break;
+        default:
+            qDebug("Option not implemented");
+            exit(1);
+        }
+
+        connect(*reply, &QNetworkReply::finished, [&finished_requests, reply, request, &mutex, &loop, total](){
+            qDebug() << "REQUEST type" << request.type << "FINISHED. Error?" << ((*reply)->error() != QNetworkReply::NoError);
+            if((*reply)->error() != QNetworkReply::NoError)
+                qDebug() << (*reply)->error();
+
+            // lock increase of variable to prevent race-conditions when multiple requests finish at the same time
+            mutex.lock();
+            ++finished_requests;
+            mutex.unlock();
+
+            if(finished_requests == total)
+                loop.quit();
+        });
+
     }
 
-    connect(reply, &QNetworkReply::finished, [reply, &loop](){
-        qDebug() << "REQUEST FINISHED. Error? " << (reply->error() != QNetworkReply::NoError);
-        if((reply->error() != QNetworkReply::NoError))
-            qDebug() << reply->error();
-        loop.quit();
-    });
-
     connect(&timer, &QTimer::timeout, [](){
-        qDebug() << "CALENDAR REQUEST NOT RECIEVED IN TIME!!!!!!";
+        qDebug() << "CALENDAR REQUEST NOT RECEIVED IN TIME!!!!!!";
     });
 
-    timer.start(1000 * 5); // 5 secs
+    timer.start(1000 * 5 * total); // 5 secs
     loop.exec();
 
-    return reply;
+    return replies;
 }
 
 bool GoogleCalendar::checkAuthentication()
@@ -402,27 +448,34 @@ bool GoogleCalendar::createOrUpdateEvent(GoogleCalendar::Event &event, bool upda
 {
     Q_ASSERT(event.calendar != nullptr);
 
-    QVariantMap options;
+
+    Request request;
 
     QVariantMap endMap;
     endMap["dateTime"] = QDateTimeToRFC3339Format(event.end);
-    options["end"] = endMap;
+    request.parameters["end"] = endMap;
     QVariantMap startMap;
     startMap["dateTime"] = QDateTimeToRFC3339Format(event.start);
-    options["start"] = startMap;
+    request.parameters["start"] = startMap;
 
-    options["summary"] = event.name;
-    options["description"] = event.description;
+    request.parameters["summary"] = event.name;
+    request.parameters["description"] = event.description;
 
     QNetworkReply* reply;
     if(update){
         Q_ASSERT(event.id != "");
-        reply = request_EventLoop("https://www.googleapis.com/calendar/v3/calendars/" + event.calendar->id + "/events/" + event.id,
-                                  options, PUT, REQUEST_BODY);
+
+        request.url = "https://www.googleapis.com/calendar/v3/calendars/" + event.calendar->id + "/events/" + event.id;
+        request.type = PUT;
+        request.format = REQUEST_BODY;
+        reply = request_EventLoop(request);
     }
-    else
-        reply = request_EventLoop("https://www.googleapis.com/calendar/v3/calendars/" + event.calendar->id + "/events",
-                                  options, POST, REQUEST_BODY);
+    else{
+        request.url = "https://www.googleapis.com/calendar/v3/calendars/" + event.calendar->id + "/events";
+        request.type = POST;
+        request.format = REQUEST_BODY;
+        reply = request_EventLoop(request);
+    }
 
     // qDebug() << reply->readAll();
 

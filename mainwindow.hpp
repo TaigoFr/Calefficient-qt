@@ -32,6 +32,12 @@ class MainWindow : public QMainWindow
 #endif
     };
 
+    enum{
+        TIMERS,
+        CHARTS,
+        SETTINGS
+    };
+
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
@@ -43,6 +49,7 @@ private:
     QWidget* makeMainFlow(QWidget* parent);
     QWidget* makeTimersPage(QWidget* parent);
     QWidget* makeSignInPage(QWidget* parent);
+    QWidget* makeChartsPage(QWidget* parent);
     QWidget* makeSettingsPage(QWidget * parent);
     QWidget* makeTimerEditPage(QWidget* parent);
 #if USE_INTERNAL_BROWSER

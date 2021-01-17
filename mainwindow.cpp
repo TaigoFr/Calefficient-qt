@@ -5,6 +5,7 @@
 
 #include "settingspage.hpp"
 #include "signinpage.hpp"
+#include "chartspage.h"
 
 #include <QLabel>
 #include <QVBoxLayout>
@@ -107,17 +108,16 @@ QWidget* MainWindow::makeMainFlow(QWidget* parent)
 {
     mainTabs.setParent(parent);
 
-    // TIMERS
-    QString timers_id = "&1";
-    mainTabs.addTab(makeTimersPage(&mainTabs), QIcon(":/resources/images/timer_icon.png"), timers_id);
+    // TIMERSx
+    mainTabs.addTab(makeTimersPage(&mainTabs), QIcon(":/resources/images/timer_icon.png"), "&" + QString::number(TIMERS));
     mainTabs.setTabToolTip(0, "Tooltip");
-    mainTabs.addTab(new QWidget(&mainTabs), QIcon(":/resources/images/stats_icon.png"), "&2");
-    mainTabs.addTab(makeSettingsPage(&mainTabs), QIcon(":/resources/images/settings_icon.png"), "&3");
+    mainTabs.addTab(makeChartsPage(&mainTabs), QIcon(":/resources/images/stats_icon.png"), "&" + QString::number(CHARTS));
+    mainTabs.addTab(makeSettingsPage(&mainTabs), QIcon(":/resources/images/settings_icon.png"), "&" + QString::number(SETTINGS));
 
     // update Timers page when change
     connect(&mainTabs, &QTabWidget::currentChanged, [=](int index){
         static bool set = false;
-        if(!set && mainTabs.tabText(index) == timers_id){
+        if(!set && index == TIMERS){
             if(!google.isSignedIn()){
                 qDebug() << "ERROR : NOT SIGNED IN WHILE MAKING TIMERS PAGE";
                 exit(1);
@@ -218,13 +218,45 @@ QWidget* MainWindow::makeSignInPage(QWidget* parent)
     return signin_widget;
 }
 
+QWidget *MainWindow::makeChartsPage(QWidget *parent)
+{
+    ChartsPage* charts_widget = new ChartsPage(google, parent);
+
+    connect(&mainTabs, &QTabWidget::currentChanged, [=](int index){
+        if(index == CHARTS)
+        {
+            //charts_widget->updateStyle(size());
+
+
+            ChartsPage::AnalysisSettings analysis;
+            analysis.start = QDateTime::fromString("2021-01-01T00:00:00", Qt::ISODate);
+            analysis.end = QDateTime::fromString("2021-01-10T12:00:00", Qt::ISODate);
+
+            ChartsPage::Profile profile;
+
+            auto calendars = google.getOwnedCalendarList();
+            for(auto &calendar: calendars){
+                ChartsPage::CalendarSettings cal_settings;
+                cal_settings.active = true;
+                cal_settings.calendar = &calendar;
+                profile.push_back(cal_settings);
+            }
+            analysis.profile = &profile;
+
+            charts_widget->sumCalendars(analysis);
+        }
+    });
+
+    return charts_widget;
+}
+
 
 QWidget* MainWindow::makeSettingsPage(QWidget * parent)
 {
     SettingsPage* settings_widget = new SettingsPage(parent);
 
     connect(&mainTabs, &QTabWidget::currentChanged, [=](int index){
-        if(mainTabs.tabText(index) == "&3")
+        if(index == SETTINGS)
             settings_widget->updateStyle(size());
     });
 

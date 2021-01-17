@@ -16,9 +16,15 @@ class GoogleCalendar : public QOAuth2AuthorizationCodeFlow
         POST,
         DELETE
     };
-    enum RequestParams{
+    enum RequestFormat{
         VARIANT_MAP,
         REQUEST_BODY
+    };
+    struct Request{
+        QString url;
+        QVariantMap parameters = QVariantMap();
+        RequestType type = GET;
+        RequestFormat format = VARIANT_MAP;
     };
 
 public:
@@ -53,7 +59,8 @@ public:
     bool isSignedIn();
 
     QVector<Calendar> getOwnedCalendarList();
-    QVector<Event> getEvents(const Calendar& cal, const QDateTime &start, const QDateTime &end, const QString &key = "");
+    QVector<Event> getCalendarEvents(const Calendar& cal, const QDateTime &start, const QDateTime &end, const QString &key = "");
+    QVector<QVector<Event>> getMultipleCalendarEvents(const QVector<const Calendar*>& cal, const QDateTime &start, const QDateTime &end, const QString &key = "");
     bool createEvent(Event& event);
     bool moveEvent(Event& event, const Calendar& cal);
     bool updateEvent(Event& event);
@@ -62,7 +69,8 @@ public:
     void deleteTokens();
 
 private:
-    QNetworkReply* request_EventLoop(const QString& url, const QVariantMap& parameters = QVariantMap(), RequestType req = GET, RequestParams req_type = VARIANT_MAP);
+    QNetworkReply* request_EventLoop(const Request& request);
+    QVector<QNetworkReply*> request_MultipleEventLoop(const QVector<Request>& requests);
     bool checkAuthentication();
     void readCrendentials(const QString& filename);
 
