@@ -45,11 +45,11 @@ MainWindow::MainWindow(QWidget *parent)
     // font for everything to use
     flowPages.setStyleSheet("font-family: \"Roboto\";");
 
-    // MAIN
-    flowPages.addWidget(makeMainFlow(&flowPages));
-
     // SIGNIN
     flowPages.addWidget(makeSignInPage(&flowPages));
+
+    // MAIN
+    flowPages.addWidget(makeMainFlow(&flowPages));
 
     // TIMER_EDIT
     flowPages.addWidget(makeTimerEditPage(&flowPages));
@@ -124,6 +124,7 @@ QWidget* MainWindow::makeMainFlow(QWidget* parent)
             }
             auto calendars = google.getOwnedCalendarList();
             timersTable.setButtons(calendars);
+            timersTable.updateStyle(this->size());
             set = true;
         }
     });
@@ -171,8 +172,8 @@ QWidget* MainWindow::makeTimersPage(QWidget * parent)
     });
 
     connect(&timersTable, &TimerTable::buttonClicked, [this](TimerButton* button){
-        timerEditPage.setEditButton(button);
         flowPages.setCurrentIndex(TIMER_EDIT);
+        timerEditPage.setEditButton(button);
     });
 
     return &timersTable;
@@ -270,8 +271,14 @@ QWidget *MainWindow::makeTimerEditPage(QWidget *parent)
 {
     timerEditPage.setParent(parent);
 
-    auto calendars = google.getOwnedCalendarList();
-    timerEditPage.setCalendars(calendars);
+    connect(&flowPages, &QStackedWidget::currentChanged, [=](int index){
+        static bool set = false;
+        if(!set && index == MAIN){ // when in main and already signed in, set calendar immediately
+            auto calendars = google.getOwnedCalendarList();
+            timerEditPage.setCalendars(calendars);
+            set = true;
+        }
+    });
 
     connect(&timerEditPage, &TimerEditPage::done, [this](int sucess){
         if(sucess)

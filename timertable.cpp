@@ -69,7 +69,8 @@ void TimerTable::updateStyle(const QSize& window_size)
 
     double spacing_perc = 0.03;
     int spacing = window_size.width() * spacing_perc;
-    int button_width = window_size.width() * 0.5;
+    int button_height = window_size.width() * 0.5;
+    int button_width = button_height * (columnCount() == 1 ? 2. : 1.);
     //int iconSize = widthPercentage(0.05);
 
     //setStyleSheet("QTableWidget::item { padding: " + QString::number(spacing) + "px }");
@@ -83,7 +84,7 @@ void TimerTable::updateStyle(const QSize& window_size)
         if(w==widgetCount()-1){ // plus button
             background_color.setRgb(230, 230, 230);
             QToolButton* button = static_cast<QToolButton*>(widget);
-            button->setIconSize(QSize(button_width * 0.4, button_width * 0.4));
+            button->setIconSize(QSize(button_height * 0.4, button_height * 0.4));
         }
         else{
             TimerButton* button = static_cast<TimerButton*>(widget);
@@ -106,7 +107,7 @@ void TimerTable::updateStyle(const QSize& window_size)
                               //"background-origin: content;"
                               //"background-image: url(\":/resources/images/play_icon.png\");"
                                                                           );
-        widget->setFixedSize(QSize(button_width, button_width));
+        widget->setFixedSize(QSize(button_width, button_height));
     }
 
     //resizeColumnsToContents();

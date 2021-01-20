@@ -172,10 +172,10 @@ QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvent
 
     auto replies = request_MultipleEventLoop(requests);
 
-    for(int i=0; i<cals.size(); ++i)
+    for(int c = 0; c < cals.size(); ++c)
     {
-        const Calendar *cal = cals[i];
-        QNetworkReply* reply = replies[i];
+        const Calendar *cal = cals[c];
+        QNetworkReply* reply = replies[c];
 
         if(reply == nullptr)
             return events;
@@ -185,16 +185,14 @@ QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvent
         QJsonObject object = json.object();
         auto items = object["items"].toArray();
 
-        for(int i =0; i<items.size(); ++i){
+        for(int i = 0; i < items.size(); ++i){
             auto item = items[i].toObject();
 
             Event event;
             UpdateEventFromJsonObject(event, item);
             event.calendar = cal;
-            events.back().push_back(event);
+            events[c].push_back(event);
         }
-
-        // qDebug() << response;
     }
 
     return events;
@@ -520,7 +518,7 @@ bool GoogleCalendar::isOnline()
 
 bool GoogleCalendar::isSignedIn()
 {
-    return token()!="";
+    return token() != "";
 }
 
 void GoogleCalendar::deleteTokens()

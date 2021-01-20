@@ -24,8 +24,8 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
     enum{
-        MAIN
-        , SIGNIN
+        SIGNIN
+        , MAIN
         , TIMER_EDIT
 #if USE_INTERNAL_BROWSER
         , WEB

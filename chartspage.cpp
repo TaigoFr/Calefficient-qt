@@ -45,7 +45,6 @@ ChartsPage::AnalysisResults ChartsPage::sumCalendars(const ChartsPage::AnalysisS
     QVector<QDateTime> empty_list;
     bool ignore_24h = settings.value("ignore_24h_events").toBool();
     bool warm_empty_slots = settings.value("warn_empty_slots").toBool();
-    bool calculate_empty_slots = settings.value("calculate_empty_slots").toBool();
 
     // current timestamp we're in
     QDateTime start = analysis.start;
@@ -119,7 +118,7 @@ ChartsPage::AnalysisResults ChartsPage::sumCalendars(const ChartsPage::AnalysisS
             //set the right 'next' for the next 'for' loop iteration
             if( indices[i] < events[i].size() ) next = std::min(next, event->start);
         }
-        if(isBlank && calculate_empty_slots){
+        if(isBlank){
             if(warm_empty_slots)
                 empty_list.push_back(start);
 
@@ -154,8 +153,9 @@ QVector<const GoogleCalendar::Calendar*> ChartsPage::getActiveCalendars(const Ch
 int ChartsPage::findTagInString(const QString &str, const QVector<ChartsPage::TagSettings> &calendar_tags)
 {
     int t = 0;
+    QString s = str.toUpper();
     for(; t < calendar_tags.size(); ++t)
-        if(str.indexOf(calendar_tags[t].name) != -1)
+        if(s.indexOf(calendar_tags[t].name.toUpper()) != -1)
             break;
 
     if(t == calendar_tags.size())

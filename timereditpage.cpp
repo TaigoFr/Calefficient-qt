@@ -150,7 +150,7 @@ void TimerEditPage::setEditButton(TimerButton *button)
     eventDescriptionEdit->setText(data.description);
     calendarComboBox->setCurrentText(data.calendar.name);
 
-    if(data.calendar.name == calendars[0].name) // otherwise signal would not be emitted
+    if(data.calendar.id == calendars[0].id) // otherwise signal would not be emitted
         emit calendarComboBox->currentIndexChanged(0);
 
     //colorPickerDialog->setCurrentColor(data.color);
