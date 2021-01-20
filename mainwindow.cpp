@@ -226,24 +226,27 @@ QWidget *MainWindow::makeChartsPage(QWidget *parent)
         if(index == CHARTS)
         {
             //charts_widget->updateStyle(size());
-
-
             ChartsPage::AnalysisSettings analysis;
-            analysis.start = QDateTime::fromString("2021-01-01T00:00:00", Qt::ISODate);
-            analysis.end = QDateTime::fromString("2021-01-10T12:00:00", Qt::ISODate);
+            analysis.start = QDateTime::fromString("2021-01-19T00:00:00", Qt::ISODate).toUTC();
+            analysis.end = QDateTime::fromString("2021-01-19T23:00:00", Qt::ISODate).toUTC();
 
             ChartsPage::Profile profile;
 
             auto calendars = google.getOwnedCalendarList();
             for(auto &calendar: calendars){
-                ChartsPage::CalendarSettings cal_settings;
+                ChartsPage::CalendarSettings cal_settings (&calendar);
+                ChartsPage::TagSettings tag_settings;
+                tag_settings.active = true;
+                tag_settings.name = "tag";
+
                 cal_settings.active = true;
-                cal_settings.calendar = &calendar;
+                cal_settings.tags.push_back(tag_settings);
                 profile.push_back(cal_settings);
             }
             analysis.profile = &profile;
 
-            charts_widget->sumCalendars(analysis);
+            auto res = charts_widget->sumCalendars(analysis);
+            qDebug() << res.sumCalendars << res.sumTags << res.totalEmptyTime;
         }
     });
 
