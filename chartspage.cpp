@@ -30,9 +30,14 @@ ChartsPage::AnalysisResults::AnalysisResults(const Profile& profile) {
 
 ChartsPage::AnalysisResults ChartsPage::sumCalendars(const ChartsPage::AnalysisSettings &analysis)
 {
+    QElapsedTimer myTimer;
+    myTimer.start();
+
     const Profile& profile = *analysis.profile;
     QVector<QVector<GoogleCalendar::Event>> events =
             google.getMultipleCalendarEvents(getActiveCalendars(profile), analysis.start, analysis.end);
+
+    qDebug() << myTimer.elapsed() / 1000.;
 
     int num_calendars = profile.size();
 
@@ -136,6 +141,12 @@ ChartsPage::AnalysisResults ChartsPage::sumCalendars(const ChartsPage::AnalysisS
     }
 
     results.totalEmptyTime /= MSECS_PER_HOUR;
+
+    qDebug() << myTimer.elapsed() / 1000.;
+
+    if(warm_empty_slots && empty_list.size()){
+        qDebug() << "EMPTY SLOTS:" << empty_list;
+    }
 
     return results;
 }

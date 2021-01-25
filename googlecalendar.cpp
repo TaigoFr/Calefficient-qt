@@ -145,10 +145,16 @@ QVector<GoogleCalendar::Event> GoogleCalendar::getCalendarEvents(const GoogleCal
     return getMultipleCalendarEvents({&cal}, start, end, key)[0];
 }
 
-QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvents(const QVector<const GoogleCalendar::Calendar*> &cals, const QDateTime &start, const QDateTime &end, const QString& key)
+QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvents(
+        const QVector<const GoogleCalendar::Calendar*> &cals,
+        const QDateTime &start,
+        const QDateTime &end,
+        const QString& key)
 {
     QVector<QVector<GoogleCalendar::Event>> events;
     QVector<Request> requests;
+
+    static const int MAX_RESULTS = 250; // 2500 is maximum, 250 default
 
     for(auto *cal: cals)
     {
@@ -167,6 +173,7 @@ QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvent
         request.parameters["singleEvents"] = true;
         request.parameters["timeMin"] = QDateTimeToRFC3339Format(start);
         request.parameters["timeMax"] = QDateTimeToRFC3339Format(end);
+        request.parameters["maxResults"] = MAX_RESULTS;
         requests.push_back(request);
     }
 
@@ -192,6 +199,15 @@ QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvent
             UpdateEventFromJsonObject(event, item);
             event.calendar = cal;
             events[c].push_back(event);
+        }
+        //qDebug() << items.size();
+
+        if(items.size() == MAX_RESULTS){
+            // start at last event's start, to ensure any event between event.start and event.end is also consider
+            // but then discard the same event that was drawn twice (assumes return comes ordered in time)
+            QVector<GoogleCalendar::Event> extra_events = getCalendarEvents(*cal, events[c].back().start, end, key);
+            extra_events.removeFirst();
+            events[c].append(extra_events);
         }
     }
 
@@ -300,8 +316,8 @@ QVector<QNetworkReply*> GoogleCalendar::request_MultipleEventLoop(const QVector<
             exit(1);
         }
 
-        connect(*reply, &QNetworkReply::finished, [&finished_requests, reply, request, &mutex, &loop, total](){
-            qDebug() << "REQUEST type" << request.type << "FINISHED. Error?" << ((*reply)->error() != QNetworkReply::NoError);
+        connect(*reply, &QNetworkReply::finished, [&finished_requests, reply, i, request, &mutex, &loop, total](){
+            qDebug() << "REQUEST" + (total>1 ? " " + QString::number(i) : "") + " type" << request.type << "FINISHED. Error?" << ((*reply)->error() != QNetworkReply::NoError);
             if((*reply)->error() != QNetworkReply::NoError)
                 qDebug() << (*reply)->error();
 
@@ -413,6 +429,7 @@ QDateTime GoogleCalendar::QDateTimeFromRFC3339Format(const QString &str)
     else{
         date = QDateTime::fromString(str_date, "yyyy-MM-ddThh:mm:ss");
     }
+    date.setOffsetFromUtc(0); // force UTC
 
     if(hasTimeZone){
         QString timezone = str.right(6);
@@ -430,8 +447,23 @@ void GoogleCalendar::UpdateEventFromJsonObject(Event &event, const QJsonObject &
 {
     event.id = item["id"].toString();
     event.htmlLink = item["htmlLink"].toString();
-    event.start = QDateTimeFromRFC3339Format(item["start"].toObject()["dateTime"].toString());
-    event.end = QDateTimeFromRFC3339Format(item["end"].toObject()["dateTime"].toString());
+
+    QJsonObject start = item["start"].toObject();
+    QJsonObject end = item["end"].toObject();
+    if(start.contains("date")){
+        event.start = QDateTime::fromString(start["date"].toString(), "yyyy-MM-dd");
+        event.start.setOffsetFromUtc(0);
+    }
+    else
+        event.start = QDateTimeFromRFC3339Format(start["dateTime"].toString());
+
+    if(end.contains("date")){
+        event.end = QDateTime::fromString(end["date"].toString(), "yyyy-MM-dd");
+        event.end.setOffsetFromUtc(0);
+    }
+    else
+        event.end = QDateTimeFromRFC3339Format(end["dateTime"].toString());
+
     event.created = QDateTimeFromRFC3339Format(item["created"].toString());
     event.updated = QDateTimeFromRFC3339Format(item["updated"].toString());
     event.name = item["summary"].toString();

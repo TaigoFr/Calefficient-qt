@@ -228,8 +228,8 @@ QWidget *MainWindow::makeChartsPage(QWidget *parent)
         {
             //charts_widget->updateStyle(size());
             ChartsPage::AnalysisSettings analysis;
-            analysis.start = QDateTime::fromString("2021-01-19T00:00:00", Qt::ISODate).toUTC();
-            analysis.end = QDateTime::fromString("2021-01-19T23:00:00", Qt::ISODate).toUTC();
+            analysis.start = QDateTime::fromString("2020-12-01T00:00:00", Qt::ISODate).toUTC();
+            analysis.end = QDateTime::fromString("2021-01-02T23:00:00", Qt::ISODate).toUTC();
 
             ChartsPage::Profile profile;
 
@@ -238,7 +238,7 @@ QWidget *MainWindow::makeChartsPage(QWidget *parent)
                 ChartsPage::CalendarSettings cal_settings (&calendar);
                 ChartsPage::TagSettings tag_settings;
                 tag_settings.active = true;
-                tag_settings.name = "tag";
+                tag_settings.name = "Calefficient";
 
                 cal_settings.active = true;
                 cal_settings.tags.push_back(tag_settings);
