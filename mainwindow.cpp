@@ -234,6 +234,7 @@ QWidget *MainWindow::makeChartsPage(QWidget *parent)
             ChartsPage::Profile profile;
 
             auto calendars = google.getOwnedCalendarList();
+            int i = 0;
             for(auto &calendar: calendars){
                 ChartsPage::CalendarSettings cal_settings (&calendar);
                 ChartsPage::TagSettings tag_settings;
@@ -246,8 +247,8 @@ QWidget *MainWindow::makeChartsPage(QWidget *parent)
             }
             analysis.profile = &profile;
 
-            auto res = charts_widget->sumCalendars(analysis);
-            qDebug() << res.sumCalendars << res.sumTags << res.totalEmptyTime;
+            auto res = charts_widget->runAnalysis(analysis);
+            charts_widget->showChartAnalysis(res);
         }
     });
 

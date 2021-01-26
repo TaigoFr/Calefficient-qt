@@ -2,6 +2,8 @@
 #define CHARTSPAGE_H
 
 #include <QWidget>
+#include <QtCharts>
+#include <QVBoxLayout>
 
 #include "googlecalendar.hpp"
 
@@ -32,18 +34,25 @@ public:
     };
 
     struct AnalysisResults{
-        AnalysisResults(const Profile&);
+        AnalysisResults(const AnalysisSettings&);
         QVector<float> sumCalendars;
         QVector<QVector<float>> sumTags;
         float totalEmptyTime;
+        const AnalysisSettings& settings;
     };
 
     ChartsPage(GoogleCalendar &a_google, QWidget * parent = nullptr);
 
-    AnalysisResults sumCalendars(const AnalysisSettings &analysis);
+    AnalysisResults runAnalysis(const AnalysisSettings &analysis);
+
+    void showChartAnalysis(const AnalysisResults& results);
 
 private:
     GoogleCalendar &google;
+    QVBoxLayout* vl;
+    QChartView *chartView;
+    QScrollArea *scrollArea;
+    QVBoxLayout* scrollArea_vl;
 
 private:
     QVector<const GoogleCalendar::Calendar*> getActiveCalendars(const Profile& profile);
