@@ -42,8 +42,9 @@ MainWindow::MainWindow(QWidget *parent)
     l->addWidget(&flowPages);
     l->setContentsMargins(0, 0, 0, 0);
 
+
     // font for everything to use
-    flowPages.setStyleSheet("font-family: \"Roboto\";");
+    flowPages.setStyleSheet("font-family: \"Roboto\"; border: 0px;");
 
     // SIGNIN
     flowPages.addWidget(makeSignInPage(&flowPages));

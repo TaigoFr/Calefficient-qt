@@ -6,6 +6,7 @@
 #include <QVBoxLayout>
 
 #include "googlecalendar.hpp"
+#include "scrollabletablewidget.hpp"
 
 class ChartsPage: public QWidget
 {
@@ -51,8 +52,7 @@ private:
     GoogleCalendar &google;
     QVBoxLayout* vl;
     QChartView *chartView;
-    QScrollArea *scrollArea;
-    QVBoxLayout* scrollArea_vl;
+    ScrollableTableWidget *scrollWidget;
 
 private:
     QVector<const GoogleCalendar::Calendar*> getActiveCalendars(const Profile& profile);

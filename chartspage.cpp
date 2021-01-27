@@ -10,15 +10,13 @@ ChartsPage::ChartsPage(GoogleCalendar &a_google, QWidget *parent): QWidget(paren
 {
     vl = new QVBoxLayout(this);
 
-    scrollArea = new QScrollArea(this);
-    scrollArea_vl = new QVBoxLayout(scrollArea);
-    scrollArea->setLayout(scrollArea_vl);
+    scrollWidget = new ScrollableTableWidget(this);
+    //scrollArea_vl = new QVBoxLayout(scrollArea);
+    //scrollArea->setLayout(scrollArea_vl);
 
-    scrollArea_vl->setContentsMargins(0, 0, 0, 0);
-    scrollArea->setFrameShape(QFrame::NoFrame);
+    //scrollArea_vl->setContentsMargins(0, 0, 0, 0);
     vl->setContentsMargins(0, 0, 0, 0);
-
-    //vl->addWidget(scrollArea);
+    vl->addWidget(scrollWidget);
 }
 
 ChartsPage::CalendarSettings::CalendarSettings(const GoogleCalendar::Calendar* cal) {
@@ -181,7 +179,6 @@ void ChartsPage::showChartAnalysis(const ChartsPage::AnalysisResults &results)
     chart->addSeries(series);
     chart->setAnimationOptions(QChart::SeriesAnimations);
     chart->layout()->setContentsMargins(0, 0, 0, 0);
-    //chart->setBackgroundVisible(false);
     chart->setBackgroundRoundness(0);
 
     QStringList categories;
@@ -209,16 +206,19 @@ void ChartsPage::showChartAnalysis(const ChartsPage::AnalysisResults &results)
     chart->legend()->setReverseMarkers(true);
     chart->setTheme(QChart::ChartThemeBlueCerulean);
 
-    if(chartView != nullptr){
-        vl->removeWidget(chartView);
-        delete chartView;
-    }
-
     chartView = new QChartView(chart);
     chartView->setRenderHint(QPainter::Antialiasing);
     chartView->setFrameShape(QFrame::NoFrame);
+    chartView->setMinimumHeight(4000);
+    chart->setAcceptTouchEvents(true);
+    chart->setAcceptHoverEvents(true);
+    chart->setFiltersChildEvents(true);
 
-    vl->addWidget(chartView);
+    chartView->installEventFilter(scrollWidget);
+    chart->installEventFilter(scrollWidget);
+    series->installEventFilter(scrollWidget);
+
+    scrollWidget->addWidget(chartView);
 }
 
 QVector<const GoogleCalendar::Calendar*> ChartsPage::getActiveCalendars(const ChartsPage::Profile &profile)

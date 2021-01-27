@@ -77,6 +77,9 @@ void ScrollableTableWidget::addWidget(QWidget *widget)
 
     setCellWidget(rowCount()-1, widgetCount() % columnCount(), widget);
     ++m_widgetCount;
+
+    resizeRowsToContents();
+    resizeColumnsToContents();
 }
 
 int ScrollableTableWidget::widgetCount() const
@@ -112,10 +115,11 @@ bool ScrollableTableWidget::getScrolled() const
 
 bool ScrollableTableWidget::viewportEvent(QEvent *event)
 {
-    //static int i = 1;
-    if(event->type() != QEvent::Paint && event->type() != QEvent::HoverMove && event->type() != QEvent::Move){
-        //qDebug() << "EVENT " << i++;
-        //qDebug() << event->type();
+    static int i = 1;
+    //if(event->type() != QEvent::Paint && event->type() != QEvent::HoverMove && event->type() != QEvent::Move)
+    {
+        qDebug() << "EVENT " << i++;
+        qDebug() << event->type();
     }
 
     scrollEvent(event);
@@ -125,12 +129,12 @@ bool ScrollableTableWidget::viewportEvent(QEvent *event)
 
 bool ScrollableTableWidget::eventFilter(QObject *obj, QEvent *event)
 {
-    //static int i = 1;
-    if(event->type() != QEvent::Paint && event->type() != QEvent::HoverMove && event->type() != QEvent::Move){
-        //qDebug() << "eventFilter " << i++;
-        //qDebug() << event->type();
+    static int i = 1;
+    //if(event->type() != QEvent::Paint && event->type() != QEvent::HoverMove && event->type() != QEvent::Move)
+    {
+        qDebug() << "eventFilter " << i++;
+        qDebug() << event->type();
     }
-
     scrollEvent(event);
 
     return QTableWidget::eventFilter(obj, event);
@@ -188,7 +192,7 @@ void ScrollableTableWidget::scrollEvent(QEvent *event)
             drag_velocity_start = (drag_velocity_start < 0. ? -1. : 1.) * std::min(abs(drag_velocity_start), MAX_VELOCITY * parentWidget()->width() / 1080.);
             //qDebug() << "VELOCITY";
             //qDebug() << drag_velocity_start << " (" << savedPositions[(posIndex-1) % saveCount] << " | " << savedPositions[posIndex % saveCount] << ")("
-                     //<< drag_time_start << " | " << savedTimes[posIndex % saveCount] << ")";
+            //<< drag_time_start << " | " << savedTimes[posIndex % saveCount] << ")";
             drag_timer.start(DRAG_DT);
         }
     }
