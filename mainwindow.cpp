@@ -33,10 +33,6 @@ MainWindow::MainWindow(QWidget *parent)
 {
     GoogleCalendar::setCredentials(":/private/Calefficient_client_secret.json");
     //GoogleCalendar::getInstance().deleteTokens();
-    GoogleCalendar::getInstance().refreshAccessToken();
-    QEventLoop loop;
-    loop.exec();
-    exit(1);
 
     ui->setupUi(this);
 
@@ -143,21 +139,15 @@ QWidget* MainWindow::makeTimersPage(QWidget * parent)
     timersTable = new TimerTable(parent);
 
     // onResize (needed because during app startup, window size is not yet defined
-    connect(this, &MainWindow::onResize, [=](){
-        timersTable->updateStyle();
-    });
+    connect(this, &MainWindow::onResize, timersTable, &TimerTable::updateStyle);
 
     connect(timersTable, &TimerTable::buttonLongPressed, [this](TimerButton* button){
-        flowPages->setCurrentIndex(TIMER_EDIT_PAGE);
         timerEditPage->setData(button->getData());
-    });
-    connect(timersTable, &TimerTable::buttonLongPressed, [this](){
         flowPages->setCurrentIndex(TIMER_EDIT_PAGE);
-        timerEditPage->setData(TimerButton::Data());
     });
-
-    connect(timersTable, &TimerTable::buttonCreated, [this](){
-        timersTable->updateStyle();
+    connect(timersTable, &TimerTable::plusButtonClicked, [this](){
+        timerEditPage->setData(TimerButton::Data());
+        flowPages->setCurrentIndex(TIMER_EDIT_PAGE);
     });
 
     return timersTable;
@@ -196,10 +186,7 @@ QWidget* MainWindow::makeSignInPage(QWidget* parent)
         }
     });
 
-    // onResize
-    connect(this, &MainWindow::onResize, [=](){
-        signin_widget->updateStyle();
-    });
+    connect(this, &MainWindow::onResize, signin_widget, &SignInPage::updateStyle);
 
     return signin_widget;
 }
@@ -211,7 +198,6 @@ QWidget *MainWindow::makeChartsPage(QWidget *parent)
     connect(mainTabs, &QTabWidget::currentChanged, [=](int index){
         if(index == CHARTS_PAGE)
         {
-            //charts_widget->updateStyle(size());
             ChartsPage::AnalysisSettings analysis;
             analysis.start = QDateTime::fromString("2020-12-01T00:00:00", Qt::ISODate).toUTC();
             analysis.end = QDateTime::fromString("2021-01-02T23:00:00", Qt::ISODate).toUTC();

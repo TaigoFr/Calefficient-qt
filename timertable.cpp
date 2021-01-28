@@ -14,21 +14,21 @@ TimerTable::TimerTable(QWidget * parent) : ScrollableTableWidget(parent), active
 
     //setDragDropMode(QAbstractItemView::InternalMove);
 
-    connect(&GoogleCalendar::getInstance(), &GoogleCalendar::signedIn, [this](){
-        qDebug() << "WRONG";
-        setButtons();
-    });
-
     if(GoogleCalendar::getInstance().isSignedIn())
         setButtons();
+    else
+    {
+        connect(&GoogleCalendar::getInstance(), &GoogleCalendar::signedIn, [this](){
+            qDebug() << "WRONG";
+            setButtons();
+        });
+    }
 }
 
 void TimerTable::setButtons()
 {
-    qDebug() << "HERE1";
     QVector<GoogleCalendar::Calendar> &calendars = GoogleCalendar::getInstance().getOwnedCalendarList();
 
-    qDebug() << "HERE2";
     clear();
     setColumnCount(calendars.size() <= 3 ? 1 : 2);
 
@@ -39,11 +39,8 @@ void TimerTable::setButtons()
         for(auto &calendar : calendars)
             addButton(&calendar);
 
-    qDebug() << "HERE3";
     setupButton(makePlusButton());
-    qDebug() << "HERE4";
     updateStyle();
-    qDebug() << "HERE5";
 }
 
 TimerButton* TimerTable::addButton(const GoogleCalendar::Calendar* a_cal)
@@ -150,6 +147,7 @@ void TimerTable::updateStyle()
 void TimerTable::clear()
 {
     active_timer_button = nullptr;
+    button_on_edit = nullptr;
     ScrollableTableWidget::clear();
 }
 
@@ -176,6 +174,7 @@ void TimerTable::saveButtonOnEdit(const TimerButton::Data &data)
     }
 
     button_on_edit->setData(data);
+    updateStyle();
 }
 
 void TimerTable::setupButton(QAbstractButton *button)
@@ -183,7 +182,8 @@ void TimerTable::setupButton(QAbstractButton *button)
     button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     addWidget(button);
-    emit buttonCreated();
+    //emit buttonCreated();
+    updateStyle();
 
     //button->installEventFilter(this);
 

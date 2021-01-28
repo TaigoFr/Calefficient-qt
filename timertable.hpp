@@ -23,7 +23,7 @@ public:
 signals:
     void buttonClicked(TimerButton*);
     void buttonLongPressed(TimerButton*);
-    void buttonCreated();
+    //void buttonCreated();
     void plusButtonClicked();
 
 private:

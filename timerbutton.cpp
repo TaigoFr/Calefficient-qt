@@ -73,8 +73,12 @@ bool TimerButton::event(QEvent *event)
 {
     if (event->type() == QEvent::Gesture){
         QGestureEvent * gestureEvent = static_cast<QGestureEvent*>(event);
-        if (gestureEvent->gesture(Qt::TapAndHoldGesture))
-            emit longPressed();
+        QGesture *gesture = gestureEvent->gesture(Qt::TapAndHoldGesture);
+        if (gesture){
+            QTapAndHoldGesture* tapAndHold = static_cast<QTapAndHoldGesture *>(gesture);
+            if(tapAndHold->state() == Qt::GestureFinished)
+                emit longPressed();
+        }
     }
 
     return QPushButton::event(event);

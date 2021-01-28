@@ -70,7 +70,7 @@ ChartsPage::AnalysisResults ChartsPage::runAnalysis(const ChartsPage::AnalysisSe
 
             // if we hit 'next', set 'repeat' to 'true' and come back to 1st calendar
             bool repeat = false;
-            const GoogleCalendar::Event* event;
+            const GoogleCalendar::Event* event = nullptr;
             /* Loop through events of the calendar until
              (1) events finish for this calendar
              (2) there is a blank space (so that we can check if other lower priority calendars fill that space)
@@ -121,7 +121,7 @@ ChartsPage::AnalysisResults ChartsPage::runAnalysis(const ChartsPage::AnalysisSe
             //in case (3), since we reached a higher priority calendar, one must go back to the beginning of the for loop
             if( repeat ) break;
             //set the right 'next' for the next 'for' loop iteration
-            if( indices[i] < events[i].size() ) next = std::min(next, event->start);
+            if( indices[i] < events[i].size() && event != nullptr) next = std::min(next, event->start);
         }
         if(isBlank){
             if(warm_empty_slots)
@@ -212,11 +212,11 @@ void ChartsPage::showChartAnalysis(const ChartsPage::AnalysisResults &results)
     chartView->setMinimumHeight(4000);
     chart->setAcceptTouchEvents(true);
     chart->setAcceptHoverEvents(true);
-    chart->setFiltersChildEvents(true);
+    //chart->setFiltersChildEvents(true);
 
-    chartView->installEventFilter(scrollWidget);
-    chart->installEventFilter(scrollWidget);
-    series->installEventFilter(scrollWidget);
+    //chartView->installEventFilter(scrollWidget);
+    //chart->installEventFilter(scrollWidget);
+    //series->installEventFilter(scrollWidget);
 
     scrollWidget->addWidget(chartView);
 }

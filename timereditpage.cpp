@@ -110,12 +110,14 @@ TimerEditPage::TimerEditPage(QWidget * parent)
     //setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
     //setAttribute(Qt::WA_TranslucentBackground);
 
-    connect(&GoogleCalendar::getInstance(), &GoogleCalendar::signedIn, [this](){
+    if(GoogleCalendar::getInstance().isSignedIn())
         setCalendars();
-    });
-
-    //if(GoogleCalendar::getInstance().isSignedIn())
-        //setCalendars();
+    else
+    {
+        connect(&GoogleCalendar::getInstance(), &GoogleCalendar::signedIn, [this](){
+            setCalendars();
+        });
+    }
 }
 
 void TimerEditPage::setCalendars()

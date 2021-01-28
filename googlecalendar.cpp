@@ -19,8 +19,7 @@ GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Ca
 
     QString token_str = m_settings.value("token").toString();
     QString refreshToken_str = m_settings.value("refreshToken").toString();
-    QDateTime expirationDate = QDateTime(QDate(2019,1,1), QTime(0,0,0));
-            //m_settings.value("expirationDate").toDateTime();
+    QDateTime expirationDate = m_settings.value("expirationDate").toDateTime();
 
     if(token_str != "")
         setToken(token_str);
@@ -100,8 +99,11 @@ QDebug operator<<(QDebug dbg, const GoogleCalendar::Event& e){
 
 QVector<GoogleCalendar::Calendar>& GoogleCalendar::getOwnedCalendarList()
 {
+    static QMutex mutex;
+    mutex.lock();
     if(calendars.size() == 0)
         updateOwnedCalendarList();
+    mutex.unlock();
 
     return calendars;
 }
