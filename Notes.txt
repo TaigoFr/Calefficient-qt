@@ -1,0 +1,7 @@
+
+Future Ideas
+
+For Charts:
+ - Callout Example shows how to add small speech bubbles to charts (e.g. say too much time somewhere)
+
+ 

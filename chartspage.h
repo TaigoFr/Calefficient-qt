@@ -42,14 +42,13 @@ public:
         const AnalysisSettings& settings;
     };
 
-    ChartsPage(GoogleCalendar &a_google, QWidget * parent = nullptr);
+    ChartsPage(QWidget * parent = nullptr);
 
     AnalysisResults runAnalysis(const AnalysisSettings &analysis);
 
     void showChartAnalysis(const AnalysisResults& results);
 
 private:
-    GoogleCalendar &google;
     QVBoxLayout* vl;
     QChartView *chartView;
     ScrollableTableWidget *scrollWidget;

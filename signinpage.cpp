@@ -41,20 +41,20 @@ SignInPage::SignInPage(QWidget* parent) : QWidget(parent), colour("rgb(0, 144, 0
     connect(button, &QPushButton::clicked, [this](){ emit signInResquested(); });
 }
 
-void SignInPage::updateStyle(const QSize &size)
+void SignInPage::updateStyle()
 {
-    // int size = std::min(this->width(), this->height());
-    int fontSize = size.height() * 0.02;
+    QSize window_size = window()->size();
+    int fontSize = window_size.height() * 0.02;
 
     setStyleSheet("background-color: " + colour +
                   "font: bold " + QString::number(fontSize) + "px;");
 
     // QPixmap pix = logo->pixmap(Qt::ReturnByValueConstant());
-    logo->setPixmap(img.scaledToWidth(size.height() * 0.25));
+    logo->setPixmap(img.scaledToWidth(window_size.height() * 0.25));
 
-    name->setStyleSheet("margin-top: " + QString::number(size.height() * 0.05) + ";"
+    name->setStyleSheet("margin-top: " + QString::number(window_size.height() * 0.05) + ";"
                         "font: bold " + QString::number(fontSize * 2) + "px;"
                         "color: white;");
 
-    spacer->changeSize(0, size.height() * 0.3);
+    spacer->changeSize(0, window_size.height() * 0.3);
 }

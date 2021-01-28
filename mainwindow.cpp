@@ -27,48 +27,44 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , google(":/private/Calefficient_client_secret.json")
-    , flowPages(this)
     #if USE_INTERNAL_BROWSER
     , webView(this)
     #endif
 {
-    // google.deleteTokens();
+    GoogleCalendar::setCredentials(":/private/Calefficient_client_secret.json");
+    //GoogleCalendar::getInstance().deleteTokens();
+    GoogleCalendar::getInstance().refreshAccessToken();
+    QEventLoop loop;
+    loop.exec();
+    exit(1);
 
     ui->setupUi(this);
 
+    flowPages = new QStackedWidget(this);
+
     QVBoxLayout *l = new QVBoxLayout();
     ui->centralwidget->setLayout(l);
-    l->addWidget(&flowPages);
+    l->addWidget(flowPages);
     l->setContentsMargins(0, 0, 0, 0);
 
 
     // font for everything to use
-    flowPages.setStyleSheet("font-family: \"Roboto\"; border: 0px;");
+    flowPages->setStyleSheet("font-family: \"Roboto\"; border: 0px;");
 
     // SIGNIN
-    flowPages.addWidget(makeSignInPage(&flowPages));
+    flowPages->addWidget(makeSignInPage(flowPages));
 
     // MAIN
-    flowPages.addWidget(makeMainFlow(&flowPages));
+    flowPages->addWidget(makeMainTabs(flowPages));
 
     // TIMER_EDIT
-    flowPages.addWidget(makeTimerEditPage(&flowPages));
-
-    /*auto calendars = google.getOwnedCalendarLists();
-    GoogleCalendar::Event event;
-    event.start = QDateTime::fromString("2020-12-12T00:00:00", Qt::ISODate);
-    event.end = QDateTime::fromString("2020-12-12T12:00:00", Qt::ISODate);
-    event.name = "It worked!";
-    event.description = "I am a description";
-    event.calendar = &calendars[0];
-    google.createEvent(event);*/
+    flowPages->addWidget(makeTimerEditPage(flowPages));
 
 #if USE_INTERNAL_BROWSER
     setAuthenticationPage();    // WEB
 #endif
 
-    flowPages.setCurrentIndex(google.isSignedIn() ? MAIN : SIGNIN);
+    flowPages->setCurrentIndex(GoogleCalendar::getInstance().isSignedIn() ? MAIN_TABS : SIGNIN_PAGE);
 }
 
 MainWindow::~MainWindow()
@@ -105,52 +101,31 @@ bool MainWindow::event(QEvent *event)
     return QWidget::event(event);
 }
 
-QWidget* MainWindow::makeMainFlow(QWidget* parent)
+QWidget* MainWindow::makeMainTabs(QWidget* parent)
 {
-    mainTabs.setParent(parent);
+    mainTabs = new QTabWidget(parent);
 
     // TIMERSx
-    mainTabs.addTab(makeTimersPage(&mainTabs), QIcon(":/resources/images/timer_icon.png"), "&" + QString::number(TIMERS));
-    mainTabs.setTabToolTip(0, "Tooltip");
-    mainTabs.addTab(makeChartsPage(&mainTabs), QIcon(":/resources/images/stats_icon.png"), "&" + QString::number(CHARTS));
-    mainTabs.addTab(makeSettingsPage(&mainTabs), QIcon(":/resources/images/settings_icon.png"), "&" + QString::number(SETTINGS));
-
-    // update Timers page when change
-    connect(&mainTabs, &QTabWidget::currentChanged, [=](int index){
-        static bool set = false;
-        if(!set && index == TIMERS){
-            if(!google.isSignedIn()){
-                qDebug() << "ERROR : NOT SIGNED IN WHILE MAKING TIMERS PAGE";
-                exit(1);
-            }
-            auto calendars = google.getOwnedCalendarList();
-            timersTable.setButtons(calendars);
-            timersTable.updateStyle(this->size());
-            set = true;
-        }
-    });
-
-    connect(&flowPages, &QStackedWidget::currentChanged, [=](int index){
-        // also emit signal of 'Changed to new tab' when moving to the tabs page
-        if(index==MAIN)
-            emit mainTabs.currentChanged(0);
-    });
+    mainTabs->addTab(makeTimersPage(mainTabs), QIcon(":/resources/images/timer_icon.png"), "&" + QString::number(TIMERS_PAGE));
+    mainTabs->setTabToolTip(0, "Tooltip");
+    mainTabs->addTab(makeChartsPage(mainTabs), QIcon(":/resources/images/stats_icon.png"), "&" + QString::number(CHARTS_PAGE));
+    mainTabs->addTab(makeSettingsPage(mainTabs), QIcon(":/resources/images/settings_icon.png"), "&" + QString::number(SETTINGS_PAGE));
 
     // COSTUMIZE TABS
-    mainTabs.setTabPosition(QTabWidget::South);
+    mainTabs->setTabPosition(QTabWidget::South);
     //mainTabs.setMovable(true);
-    mainTabs.setTabShape(QTabWidget::TabShape::Rounded);
-    mainTabs.setUsesScrollButtons(false);
+    mainTabs->setTabShape(QTabWidget::TabShape::Rounded);
+    mainTabs->setUsesScrollButtons(false);
 
     // onResize
     connect(this, &MainWindow::onResize, [=](){
         int iconSize = width() * 0.09;
 
-        mainTabs.setIconSize(QSize(iconSize,iconSize));
+        mainTabs->setIconSize(QSize(iconSize,iconSize));
 
-        int nTabs = mainTabs.count();
+        int nTabs = mainTabs->count();
         int width = this->width() * 1./nTabs;
-        mainTabs.setStyleSheet("QTabBar::tab { height: 3em; width: " + QString::number((width+iconSize)/2) + "px; "
+        mainTabs->setStyleSheet("QTabBar::tab { height: 3em; width: " + QString::number((width+iconSize)/2) + "px; "
                                //"               background-color: " + colourDef + ";"
                                "color: transparent; "
                                "               border: none; "
@@ -160,31 +135,39 @@ QWidget* MainWindow::makeMainFlow(QWidget* parent)
                                );
     });
 
-    return &mainTabs;
+    return mainTabs;
 }
 
 QWidget* MainWindow::makeTimersPage(QWidget * parent)
 {
-    timersTable.setParent(parent);
+    timersTable = new TimerTable(parent);
 
     // onResize (needed because during app startup, window size is not yet defined
     connect(this, &MainWindow::onResize, [=](){
-        timersTable.updateStyle(this->size());
+        timersTable->updateStyle();
     });
 
-    connect(&timersTable, &TimerTable::buttonClicked, [this](TimerButton* button){
-        flowPages.setCurrentIndex(TIMER_EDIT);
-        timerEditPage.setEditButton(button);
+    connect(timersTable, &TimerTable::buttonLongPressed, [this](TimerButton* button){
+        flowPages->setCurrentIndex(TIMER_EDIT_PAGE);
+        timerEditPage->setData(button->getData());
+    });
+    connect(timersTable, &TimerTable::buttonLongPressed, [this](){
+        flowPages->setCurrentIndex(TIMER_EDIT_PAGE);
+        timerEditPage->setData(TimerButton::Data());
     });
 
-    return &timersTable;
+    connect(timersTable, &TimerTable::buttonCreated, [this](){
+        timersTable->updateStyle();
+    });
+
+    return timersTable;
 }
 
 QWidget* MainWindow::makeSignInPage(QWidget* parent)
 {
-    SignInPage * signin_widget = new SignInPage(parent);
+    SignInPage *signin_widget = new SignInPage(parent);
 
-    connect(&google, &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser,
+    connect(&GoogleCalendar::getInstance(), &QOAuth2AuthorizationCodeFlow::authorizeWithBrowser,
             [](const QUrl &url){
         //qDebug() << url;
 #if USE_INTERNAL_BROWSER
@@ -195,26 +178,27 @@ QWidget* MainWindow::makeSignInPage(QWidget* parent)
 #endif
     });
 
-    connect(&google, &QOAuth2AuthorizationCodeFlow::granted, [this](){
-        qDebug() << "GRANTED!";
-        flowPages.setCurrentIndex(MAIN);
+    connect(&GoogleCalendar::getInstance(), &GoogleCalendar::signedIn, [this](){
+        qDebug() << "SIGNED IN!";
+        flowPages->setCurrentIndex(MAIN_TABS);
+        mainTabs->setCurrentIndex(TIMERS_PAGE);
     });
 
-    connect(signin_widget, &SignInPage::signInResquested, [this](){
-        if(!google.isSignedIn()){
+    connect(signin_widget, &SignInPage::signInResquested, [](){
+        if(!GoogleCalendar::getInstance().isSignedIn()){
             qDebug() << "REQUEST GRANT!";
-            google.grant();
+            GoogleCalendar::getInstance().grant();
         }
         else
         {
             qDebug() << "ALREADY SIGNED IN!";
-            emit google.granted();
+            emit GoogleCalendar::getInstance().granted();
         }
     });
 
     // onResize
     connect(this, &MainWindow::onResize, [=](){
-        signin_widget->updateStyle(size());
+        signin_widget->updateStyle();
     });
 
     return signin_widget;
@@ -222,10 +206,10 @@ QWidget* MainWindow::makeSignInPage(QWidget* parent)
 
 QWidget *MainWindow::makeChartsPage(QWidget *parent)
 {
-    ChartsPage* charts_widget = new ChartsPage(google, parent);
+    ChartsPage* charts_widget = new ChartsPage(parent);
 
-    connect(&mainTabs, &QTabWidget::currentChanged, [=](int index){
-        if(index == CHARTS)
+    connect(mainTabs, &QTabWidget::currentChanged, [=](int index){
+        if(index == CHARTS_PAGE)
         {
             //charts_widget->updateStyle(size());
             ChartsPage::AnalysisSettings analysis;
@@ -234,10 +218,9 @@ QWidget *MainWindow::makeChartsPage(QWidget *parent)
 
             ChartsPage::Profile profile;
 
-            auto calendars = google.getOwnedCalendarList();
-            int i = 0;
+            QVector<GoogleCalendar::Calendar> &calendars = GoogleCalendar::getInstance().getOwnedCalendarList();
             for(auto &calendar: calendars){
-                ChartsPage::CalendarSettings cal_settings (&calendar);
+                ChartsPage::CalendarSettings cal_settings(&calendar);
                 ChartsPage::TagSettings tag_settings;
                 tag_settings.active = true;
                 tag_settings.name = "Calefficient";
@@ -248,7 +231,7 @@ QWidget *MainWindow::makeChartsPage(QWidget *parent)
             }
             analysis.profile = &profile;
 
-            auto res = charts_widget->runAnalysis(analysis);
+            ChartsPage::AnalysisResults res = charts_widget->runAnalysis(analysis);
             charts_widget->showChartAnalysis(res);
         }
     });
@@ -261,39 +244,24 @@ QWidget* MainWindow::makeSettingsPage(QWidget * parent)
 {
     SettingsPage* settings_widget = new SettingsPage(parent);
 
-    connect(&mainTabs, &QTabWidget::currentChanged, [=](int index){
-        if(index == SETTINGS)
-            settings_widget->updateStyle(size());
-    });
+    connect(this, &MainWindow::onResize, settings_widget, &SettingsPage::updateStyle);
 
     return settings_widget;
 }
 
 QWidget *MainWindow::makeTimerEditPage(QWidget *parent)
 {
-    timerEditPage.setParent(parent);
+    timerEditPage = new TimerEditPage(parent);
 
-    connect(&flowPages, &QStackedWidget::currentChanged, [=](int index){
-        static bool set = false;
-        if(!set && index == MAIN){ // when in main and already signed in, set calendar immediately
-            auto calendars = google.getOwnedCalendarList();
-            timerEditPage.setCalendars(calendars);
-            set = true;
-        }
-    });
-
-    connect(&timerEditPage, &TimerEditPage::done, [this](int sucess){
+    connect(timerEditPage, &TimerEditPage::done, [this](int sucess){
         if(sucess)
-            timersTable.updateStyle(this->size());
-        flowPages.setCurrentIndex(MAIN);
+            timersTable->saveButtonOnEdit(timerEditPage->getData());
+        flowPages->setCurrentIndex(MAIN_TABS);
     });
 
-    // onResize (needed because during app startup, window size is not yet defined
-    connect(this, &MainWindow::onResize, [=](){
-        timerEditPage.updateStyle(this->size());
-    });
+    connect(this, &MainWindow::onResize, timerEditPage, &TimerEditPage::updateStyle);
 
-    return &timerEditPage;
+    return timerEditPage;
 }
 
 #if USE_INTERNAL_BROWSER

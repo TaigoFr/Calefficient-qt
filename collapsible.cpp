@@ -80,8 +80,8 @@ void Collapsible::toggle(bool collapsed) {
 void Collapsible::setContentLayout(QLayout* contentLayout) {
 
     contentArea->setLayout(contentLayout);
-    const auto collapsedHeight = sizeHint().height() - contentArea->maximumHeight();
-    auto contentHeight = contentLayout->sizeHint().height();
+    const int collapsedHeight = sizeHint().height() - contentArea->maximumHeight();
+    int contentHeight = contentLayout->sizeHint().height();
 
     for (int i = 0; i < toggleAnimation->animationCount() - 1; ++i) {
         QPropertyAnimation *SectionAnimation = static_cast<QPropertyAnimation *>(toggleAnimation->animationAt(i));

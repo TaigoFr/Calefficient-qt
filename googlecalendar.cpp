@@ -11,28 +11,16 @@
 
 #include <algorithm> // std::sort
 
+GoogleCalendar *GoogleCalendar::instance = nullptr;
+
 GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Calefficient", "GoogleCalendar")
 {
     readCrendentials(credentials_file);
 
     QString token_str = m_settings.value("token").toString();
     QString refreshToken_str = m_settings.value("refreshToken").toString();
-    QDateTime expirationDate = m_settings.value("expirationDate").toDateTime();
-
-    if(!isSignedIn())
-    {
-        // not needed for refreshing the token, just for grant
-        m_replyHandler->setCallbackText("<h1> Logged in succesfully! Go back and enjoy Calefficient ;) </h1>\
-                                        <img src=\"http://caenrigen.tech/Calefficient/Logo-512.png\" alt=\"Calefficient Logo\">");
-        setScope(
-                    /*https://www.googleapis.com/auth/calendar.events.readonly \ - calendar.events replaces it with writing permissions as well*/
-                    "https://www.googleapis.com/auth/calendar.events \
-                    https://www.googleapis.com/auth/calendar.readonly \
-                    https://www.googleapis.com/auth/calendar.settings.readonly \
-                    https://www.googleapis.com/auth/userinfo.email"
-                    );
-    }
-
+    QDateTime expirationDate = QDateTime(QDate(2019,1,1), QTime(0,0,0));
+            //m_settings.value("expirationDate").toDateTime();
 
     if(token_str != "")
         setToken(token_str);
@@ -45,6 +33,18 @@ GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Ca
     qDebug() << token_str;
     qDebug() << refreshToken_str;
     qDebug() << expirationDate;
+
+    // not needed for refreshing the token, just for grant
+    {
+        m_replyHandler->setCallbackText("<h1> Logged in succesfully! Go back and enjoy Calefficient ;) </h1>\
+                                        <img src=\"http://caenrigen.tech/Calefficient/Logo-512.png\" alt=\"Calefficient Logo\">");
+        setScope(
+                    "https://www.googleapis.com/auth/calendar.events \
+                    https://www.googleapis.com/auth/calendar.readonly \
+                    https://www.googleapis.com/auth/calendar.settings.readonly \
+                    https://www.googleapis.com/auth/userinfo.email"
+                    );
+    }
 
     connect(this, &QOAuth2AuthorizationCodeFlow::tokenChanged, [this](){
         qDebug() << "tokenChanged!!!!" ;
@@ -62,11 +62,25 @@ GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Ca
         m_settings.setValue("expirationDate", expirationAt());
         m_expirationDate = expirationAt();
     });
+    connect(this, &QOAuth2AuthorizationCodeFlow::granted, [this](){
+        qDebug() << "GRANTED!";
+        emit signedIn();
+    });
 }
 
 GoogleCalendar::~GoogleCalendar()
 {
     delete m_replyHandler;
+}
+
+void GoogleCalendar::setCredentials(const QString &credentials)
+{
+    instance = new GoogleCalendar(credentials);
+}
+
+GoogleCalendar &GoogleCalendar::getInstance()
+{
+    return *instance;
 }
 
 QDebug operator<<(QDebug dbg, const GoogleCalendar::Calendar& c){
@@ -84,24 +98,31 @@ QDebug operator<<(QDebug dbg, const GoogleCalendar::Event& e){
     return dbg.maybeSpace();
 }
 
-QVector<GoogleCalendar::Calendar> GoogleCalendar::getOwnedCalendarList()
+QVector<GoogleCalendar::Calendar>& GoogleCalendar::getOwnedCalendarList()
 {
-    QVector<Calendar> calendars;
+    if(calendars.size() == 0)
+        updateOwnedCalendarList();
 
+    return calendars;
+}
+
+
+void GoogleCalendar::updateOwnedCalendarList()
+{
     Request request;
     request.url = "https://www.googleapis.com/calendar/v3/users/me/calendarList";
     request.parameters["showHidden"] = true;
-    auto reply = request_EventLoop(request);
-    if(reply == nullptr)
-        return calendars;
+    QNetworkReply* reply = request_EventLoop(request);
+    if(reply == nullptr || reply->error() != QNetworkReply::NoError)
+        return;
 
     QString response = reply->readAll();
     QJsonDocument json = QJsonDocument::fromJson(response.toUtf8());
     QJsonObject object = json.object();
-    auto items = object["items"].toArray();
+    QJsonArray items = object["items"].toArray();
 
     for(int i =0; i<items.size(); ++i){
-        auto item = items[i].toObject();
+        QJsonObject item = items[i].toObject();
 
         // skip if not owner
         if(item["accessRole"] != "owner")
@@ -123,9 +144,9 @@ QVector<GoogleCalendar::Calendar> GoogleCalendar::getOwnedCalendarList()
 
     // sort by primary, then selected, then name
     std::sort(calendars.begin(), calendars.end(), [](const Calendar& c1, const Calendar &c2){
-        if (c1.isPrimary)
+        if(c1.isPrimary)
             return true;
-        if (c2.isPrimary)
+        if(c2.isPrimary)
             return false;
         if(c1.isSelected && !c2.isSelected)
             return true;
@@ -136,13 +157,12 @@ QVector<GoogleCalendar::Calendar> GoogleCalendar::getOwnedCalendarList()
 
     // reply = get_EventLoop("https://www.googleapis.com/oauth2/v1/userinfo", options);
     // qDebug() << reply->readAll();
-
-    return calendars;
 }
 
 QVector<GoogleCalendar::Event> GoogleCalendar::getCalendarEvents(const GoogleCalendar::Calendar &cal, const QDateTime &start, const QDateTime &end, const QString& key)
 {
-    return getMultipleCalendarEvents({&cal}, start, end, key)[0];
+    QVector<QVector<GoogleCalendar::Event>> list = getMultipleCalendarEvents({&cal}, start, end, key);
+    return list[0];
 }
 
 QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvents(
@@ -177,12 +197,15 @@ QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvent
         requests.push_back(request);
     }
 
-    auto replies = request_MultipleEventLoop(requests);
+    QVector<QNetworkReply*> replies = request_MultipleEventLoop(requests);
 
     for(int c = 0; c < cals.size(); ++c)
     {
-        const Calendar *cal = cals[c];
         QNetworkReply* reply = replies[c];
+        if(reply == nullptr || reply->error() != QNetworkReply::NoError)
+            continue;
+
+        const Calendar *cal = cals[c];
 
         if(reply == nullptr)
             return events;
@@ -190,10 +213,10 @@ QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvent
         QString response = reply->readAll();
         QJsonDocument json = QJsonDocument::fromJson(response.toUtf8());
         QJsonObject object = json.object();
-        auto items = object["items"].toArray();
+        QJsonArray items = object["items"].toArray();
 
         for(int i = 0; i < items.size(); ++i){
-            auto item = items[i].toObject();
+            QJsonObject item = items[i].toObject();
 
             Event event;
             UpdateEventFromJsonObject(event, item);
@@ -233,7 +256,7 @@ bool GoogleCalendar::moveEvent(GoogleCalendar::Event &event, const GoogleCalenda
 
     // qDebug() << reply->readAll();
 
-    bool success = (reply->error() == QNetworkReply::NoError);
+    bool success = (reply != nullptr && reply->error() == QNetworkReply::NoError);
 
     if(success){
         QString response = reply->readAll();
@@ -264,12 +287,13 @@ bool GoogleCalendar::deleteEvent(GoogleCalendar::Event &event)
 
     // qDebug() << reply->readAll();
 
-    bool success = (reply->error() == QNetworkReply::NoError);
+    bool success = (reply != nullptr && reply->error() == QNetworkReply::NoError);
     return success;
 }
 
 QNetworkReply* GoogleCalendar::request_EventLoop(const Request &request){
-    return request_MultipleEventLoop({request})[0];
+    QVector<QNetworkReply*> list = request_MultipleEventLoop({request});
+    return list[0];
 }
 
 
@@ -348,6 +372,7 @@ bool GoogleCalendar::checkAuthentication()
 
     if(!isSignedIn()){
         grant();
+        qDebug() << "Are you sure you want to get here?";
         success = false;
     }
     else if(m_expirationDate < QDateTime::currentDateTime()){
@@ -370,8 +395,7 @@ bool GoogleCalendar::checkAuthentication()
         }
         else
             success = false;
-    } else
-        return success;
+    }
 
     return success;
 }
@@ -384,17 +408,17 @@ void GoogleCalendar::readCrendentials(const QString& filename)
     QString val = file.readAll();
 
     m_credentials = QJsonDocument::fromJson(val.toUtf8());
-    const auto object = m_credentials.object();
-    const auto settingsObject = object["installed"].toObject();
-    const auto clientId = settingsObject["client_id"].toString();
-    //const auto projectId = settingsObject["project_id"].toString();
+    const QJsonObject object = m_credentials.object();
+    const QJsonObject settingsObject = object["installed"].toObject();
+    const QString clientId = settingsObject["client_id"].toString();
+    //const QString projectId = settingsObject["project_id"].toString();
     const QUrl authUri(settingsObject["auth_uri"].toString());
     const QUrl tokenUri(settingsObject["token_uri"].toString());
     //const QUrl auth_provider_x509_cert_url(settingsObject["auth_provider_x509_cert_url"].toString());
 
-    const auto redirectUris = settingsObject["redirect_uris"].toArray();
+    const QJsonArray redirectUris = settingsObject["redirect_uris"].toArray();
     const QUrl redirectUri(redirectUris[0].toString()); // Get the first URI
-    const auto port = static_cast<quint16>(redirectUri.port()); // Get the port
+    const quint16 port = redirectUri.port(); // Get the port
 
     m_replyHandler = new QOAuthHttpServerReplyHandler(port, this);
 
@@ -434,8 +458,8 @@ QDateTime GoogleCalendar::QDateTimeFromRFC3339Format(const QString &str)
     if(hasTimeZone){
         QString timezone = str.right(6);
         int sign = (timezone[0] == '+' ? 1 : -1);
-        int hour = timezone.mid(1, 2).toInt();
-        int minute = timezone.right(2).toInt();
+        int hour = timezone.midRef(1, 2).toInt();
+        int minute = timezone.rightRef(2).toInt();
         int offsetInSecs = sign * (hour * 3600 + minute * 60);
         date.setOffsetFromUtc(offsetInSecs);
     }
@@ -509,7 +533,7 @@ bool GoogleCalendar::createOrUpdateEvent(GoogleCalendar::Event &event, bool upda
 
     // qDebug() << reply->readAll();
 
-    bool success = reply->error() == QNetworkReply::NoError;
+    bool success = (reply != nullptr && reply->error() == QNetworkReply::NoError);
 
     if(success){
         QString response = reply->readAll();
@@ -536,7 +560,7 @@ bool GoogleCalendar::isOnline()
     connect(reply, SIGNAL(finished()), &loop, SLOT(quit()));
 
     timeoutTimer.setSingleShot(true);
-    timeoutTimer.start(3000);
+    timeoutTimer.start(1000);
 
     loop.exec();
 
@@ -552,7 +576,6 @@ bool GoogleCalendar::isSignedIn()
 {
     return token() != "";
 }
-
 void GoogleCalendar::deleteTokens()
 {
     setToken("");

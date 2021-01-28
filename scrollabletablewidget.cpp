@@ -75,11 +75,61 @@ void ScrollableTableWidget::addWidget(QWidget *widget)
     if(widgetCount() == columnCount() * rowCount())
         setRowCount(rowCount()+1);
 
-    setCellWidget(rowCount()-1, widgetCount() % columnCount(), widget);
+    addWidget(rowCount()-1, widgetCount() % columnCount(), widget);
+}
+
+void ScrollableTableWidget::addWidget(int row, int col, QWidget *widget)
+{
+    if(columnCount() <= col)
+        setColumnCount(col+1);
+
+    if(rowCount() <= row)
+        setRowCount(row+1);
+
+    setCellWidget(row, col, widget);
     ++m_widgetCount;
 
     resizeRowsToContents();
     resizeColumnsToContents();
+}
+
+/*
+void ScrollableTableWidget::addItem(QTableWidgetItem *item)
+{
+    if(columnCount() <= 0)
+        setColumnCount(1);
+
+    if(widgetCount() == columnCount() * rowCount())
+        setRowCount(rowCount()+1);
+
+    addItem(rowCount()-1, widgetCount() % columnCount(), item);
+}
+
+void ScrollableTableWidget::addItem(int row, int col, QTableWidgetItem *item)
+{
+    if(columnCount() <= col)
+        setColumnCount(col+1);
+
+    if(rowCount() <= row)
+        setRowCount(row+1);
+
+    setItem(row, col, item);
+    ++m_widgetCount;
+}
+
+void ScrollableTableWidget::moveItem(int row, int col, int row_new, int col_new)
+{
+    QTableWidgetItem* item = removeItem(row, col);
+    addItem(row_new, col_new, item);
+}
+*/
+
+QTableWidgetItem* ScrollableTableWidget::removeItem(int row, int col)
+{
+    QTableWidgetItem* item = takeItem(row, col);
+    --m_widgetCount;
+
+    return item;
 }
 
 int ScrollableTableWidget::widgetCount() const
@@ -92,7 +142,7 @@ void ScrollableTableWidget::clear()
     for (int w=0; w<widgetCount(); ++w){
         int r = w / columnCount();
         int c = w % columnCount();
-        auto *widget = cellWidget(r, c);
+        QWidget *widget = cellWidget(r, c);
         removeCellWidget(r,c);
         delete widget;
     }
@@ -115,11 +165,11 @@ bool ScrollableTableWidget::getScrolled() const
 
 bool ScrollableTableWidget::viewportEvent(QEvent *event)
 {
-    static int i = 1;
+    //static int i = 1;
     //if(event->type() != QEvent::Paint && event->type() != QEvent::HoverMove && event->type() != QEvent::Move)
     {
-        qDebug() << "EVENT " << i++;
-        qDebug() << event->type();
+        //qDebug() << "EVENT " << i++;
+        //qDebug() << event->type();
     }
 
     scrollEvent(event);
@@ -129,12 +179,13 @@ bool ScrollableTableWidget::viewportEvent(QEvent *event)
 
 bool ScrollableTableWidget::eventFilter(QObject *obj, QEvent *event)
 {
-    static int i = 1;
+    //static int i = 1;
     //if(event->type() != QEvent::Paint && event->type() != QEvent::HoverMove && event->type() != QEvent::Move)
     {
-        qDebug() << "eventFilter " << i++;
-        qDebug() << event->type();
+        //qDebug() << "eventFilter " << i++;
+        //qDebug() << event->type();
     }
+
     scrollEvent(event);
 
     return QTableWidget::eventFilter(obj, event);

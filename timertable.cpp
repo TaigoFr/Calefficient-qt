@@ -2,9 +2,8 @@
 #include "timereditpage.hpp"
 
 #include <QScrollBar>
-#include <QToolButton>
 
-TimerTable::TimerTable(QWidget * parent) : ScrollableTableWidget(parent), active_timer_button(nullptr)
+TimerTable::TimerTable(QWidget * parent) : ScrollableTableWidget(parent), active_timer_button(nullptr), button_on_edit(nullptr)
 {
     connect(&update_timer, &QTimer::timeout, [=](){
         if(active_timer_button != nullptr)
@@ -14,32 +13,42 @@ TimerTable::TimerTable(QWidget * parent) : ScrollableTableWidget(parent), active
     });
 
     //setDragDropMode(QAbstractItemView::InternalMove);
+
+    connect(&GoogleCalendar::getInstance(), &GoogleCalendar::signedIn, [this](){
+        qDebug() << "WRONG";
+        setButtons();
+    });
+
+    if(GoogleCalendar::getInstance().isSignedIn())
+        setButtons();
 }
 
-void TimerTable::setButtons(const QVector<GoogleCalendar::Calendar> &a_cals)
+void TimerTable::setButtons()
 {
+    qDebug() << "HERE1";
+    QVector<GoogleCalendar::Calendar> &calendars = GoogleCalendar::getInstance().getOwnedCalendarList();
+
+    qDebug() << "HERE2";
     clear();
-    setColumnCount(a_cals.size() <= 3 ? 1 : 2);
+    setColumnCount(calendars.size() <= 3 ? 1 : 2);
 
     int repeat = 1;
 
     //QVector<TimerButton*> buttons(a_cals.size());
-    for (int r=0; r<repeat ; ++r) {
-        for(int i = 0; i < a_cals.size(); ++i){
-            addButton(a_cals, i);
-            //timersTable.addWidget(new QLabel(QString::number(i)));
-        }
-    }
+    for (int r=0; r<repeat ; ++r)
+        for(auto &calendar : calendars)
+            addButton(&calendar);
 
-    QToolButton * plus = new QToolButton(this);
-    plus->setIcon(QIcon(":/resources/images/plus.png"));
-    //QPushButton *plus = new QPushButton("+", this);
-    setupButton(plus);
+    qDebug() << "HERE3";
+    setupButton(makePlusButton());
+    qDebug() << "HERE4";
+    updateStyle();
+    qDebug() << "HERE5";
 }
 
-void TimerTable::addButton(const QVector<GoogleCalendar::Calendar>& a_cals, int cal_index)
+TimerButton* TimerTable::addButton(const GoogleCalendar::Calendar* a_cal)
 {
-    TimerButton *button = new TimerButton(a_cals[cal_index], this);
+    TimerButton *button = new TimerButton(a_cal, this);
     setupButton(button);
 
     connect(button, &QPushButton::clicked, [=](){
@@ -47,7 +56,7 @@ void TimerTable::addButton(const QVector<GoogleCalendar::Calendar>& a_cals, int 
             return;
 
         if(active_timer_button != nullptr)
-           active_timer_button->reset();
+            active_timer_button->reset();
 
         if(active_timer_button == button){
             button->reset();
@@ -60,12 +69,33 @@ void TimerTable::addButton(const QVector<GoogleCalendar::Calendar>& a_cals, int 
 
         emit buttonClicked(button);
     });
+    connect(button, &TimerButton::longPressed, [button, this](){
+        button_on_edit = button;
+        emit buttonLongPressed(button);
+    });
+
+    return button;
 }
 
-void TimerTable::updateStyle(const QSize& window_size)
+QToolButton *TimerTable::makePlusButton()
 {
-    if(window_size.width() == 0)
-        return;
+    QToolButton * plus = new QToolButton(this);
+    plus->setIcon(QIcon(":/resources/images/plus.png"));
+
+    connect(plus, &QToolButton::clicked, [=](){
+        if(getScrolled())
+            return;
+
+        button_on_edit = nullptr;
+        emit plusButtonClicked(); // to call TimerEditPage
+    });
+
+    return plus;
+}
+
+void TimerTable::updateStyle()
+{
+    QSize window_size = window()->size();
 
     double spacing_perc = 0.03;
     int spacing = window_size.width() * spacing_perc;
@@ -89,7 +119,9 @@ void TimerTable::updateStyle(const QSize& window_size)
         else{
             TimerButton* button = static_cast<TimerButton*>(widget);
             //background_color = button->getData().color;
-            background_color.setNamedColor(button->getData().calendar.color_hex);
+            const GoogleCalendar::Calendar* calendar = button->getData().calendar;
+            if(calendar != nullptr)
+                background_color.setNamedColor(calendar->color_hex);
         }
         widget->setStyleSheet("background-color: " + background_color.name() + ";"
                               //"background-color: rgb(" + QString::number(128+100*std::sin(300*i)) + "," + QString::number(128+100*std::sin(200*i)) + "," + QString::number(128+100*std::sin(400*i)) + ");"
@@ -106,7 +138,7 @@ void TimerTable::updateStyle(const QSize& window_size)
                               //"background-repeat: no-repeat;"
                               //"background-origin: content;"
                               //"background-image: url(\":/resources/images/play_icon.png\");"
-                                                                          );
+                              );
         widget->setFixedSize(QSize(button_width, button_height));
     }
 
@@ -121,13 +153,39 @@ void TimerTable::clear()
     ScrollableTableWidget::clear();
 }
 
+void TimerTable::saveButtonOnEdit(const TimerButton::Data &data)
+{
+    if(button_on_edit == nullptr){
+        int plus_index = widgetCount()-1;
+        int r = plus_index / columnCount();
+        int c = plus_index % columnCount();
+        QWidget* plus = cellWidget(r, c);
+        removeItem(r, c);
+
+        button_on_edit = addButton(data.calendar);
+
+        // decided to make new instead of re-using,
+        // because QTableWidget doesn't delete it when removing from grid,
+        // but takes ownership of it, so re-using it was giving errors
+        setupButton(makePlusButton());
+        delete plus; // delete old, that is still tied to QTableWidget
+    }
+    else{
+        if(button_on_edit->getData().calendar->id != data.calendar->id)
+            button_on_edit->reset();
+    }
+
+    button_on_edit->setData(data);
+}
+
 void TimerTable::setupButton(QAbstractButton *button)
 {
     button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     addWidget(button);
+    emit buttonCreated();
 
-    button->installEventFilter(this);
+    //button->installEventFilter(this);
 
     connect(button, &QAbstractButton::pressed, [this](){
         resetScrolled();

@@ -15,7 +15,7 @@ class SignInPage : public QWidget
 public:
     SignInPage(QWidget* parent = nullptr);
 
-    void updateStyle(const QSize& size);
+    void updateStyle();
 
 signals:
     void signInResquested();

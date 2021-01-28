@@ -10,6 +10,8 @@
 
 class GoogleCalendar : public QOAuth2AuthorizationCodeFlow
 {
+    Q_OBJECT
+
     enum RequestType{
         GET,
         PUT,
@@ -52,13 +54,18 @@ public:
         friend QDebug operator<<(QDebug dbg, const Event& e);
     };
 
-public:
+private:
     GoogleCalendar(const QString& credentials);
     ~GoogleCalendar();
+
+public:
+    static void setCredentials(const QString& credentials);
+    static GoogleCalendar& getInstance();
+
     static bool isOnline();
     bool isSignedIn();
 
-    QVector<Calendar> getOwnedCalendarList();
+    QVector<Calendar>& getOwnedCalendarList();
     QVector<Event> getCalendarEvents(const Calendar& cal, const QDateTime &start, const QDateTime &end, const QString &key = "");
     QVector<QVector<Event>> getMultipleCalendarEvents(const QVector<const Calendar*>& cal, const QDateTime &start, const QDateTime &end, const QString &key = "");
     bool createEvent(Event& event);
@@ -68,7 +75,12 @@ public:
 
     void deleteTokens();
 
+signals:
+    void signedIn();
+
+
 private:
+    void updateOwnedCalendarList();
     QNetworkReply* request_EventLoop(const Request& request);
     QVector<QNetworkReply*> request_MultipleEventLoop(const QVector<Request>& requests);
     bool checkAuthentication();
@@ -86,6 +98,11 @@ private:
 
     QSettings m_settings;
     QDateTime m_expirationDate;
+
+    QVector<Calendar> calendars;
+
+    static GoogleCalendar* instance;
 };
+
 
 #endif // GOOGLEOAUTH2_HPP

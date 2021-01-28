@@ -6,7 +6,7 @@
 
 #define MSECS_PER_HOUR (1000 * 60 * 60)
 
-ChartsPage::ChartsPage(GoogleCalendar &a_google, QWidget *parent): QWidget(parent), google(a_google), chartView(nullptr)
+ChartsPage::ChartsPage(QWidget *parent): QWidget(parent), chartView(nullptr)
 {
     vl = new QVBoxLayout(this);
 
@@ -40,7 +40,7 @@ ChartsPage::AnalysisResults ChartsPage::runAnalysis(const ChartsPage::AnalysisSe
 {
     const Profile& profile = *analysis.profile;
     QVector<QVector<GoogleCalendar::Event>> events =
-            google.getMultipleCalendarEvents(getActiveCalendars(profile), analysis.start, analysis.end);
+            GoogleCalendar::getInstance().getMultipleCalendarEvents(getActiveCalendars(profile), analysis.start, analysis.end);
 
     int num_calendars = profile.size();
 
@@ -170,7 +170,7 @@ void ChartsPage::showChartAnalysis(const ChartsPage::AnalysisResults &results)
             *set1 << cal.target;
     }
 
-    QHorizontalBarSeries *series = new QHorizontalBarSeries();
+    QHorizontalBarSeries *series = new QHorizontalBarSeries(this);
     series->append(set1);
     series->append(set0);
     series->setLabelsVisible(true);
@@ -190,13 +190,13 @@ void ChartsPage::showChartAnalysis(const ChartsPage::AnalysisResults &results)
             categories << cal.name;
     }
 
-    QBarCategoryAxis *axisY = new QBarCategoryAxis();
+    QBarCategoryAxis *axisY = new QBarCategoryAxis(this);
     axisY->append(categories);
     chart->addAxis(axisY, Qt::AlignLeft);
     series->attachAxis(axisY);
     axisY->setLabelsAngle(90);
     axisY->setGridLineVisible(false);
-    QValueAxis *axisX = new QValueAxis();
+    QValueAxis *axisX = new QValueAxis(this);
     chart->addAxis(axisX, Qt::AlignTop);
     series->attachAxis(axisX);
     axisX->applyNiceNumbers();
@@ -206,7 +206,7 @@ void ChartsPage::showChartAnalysis(const ChartsPage::AnalysisResults &results)
     chart->legend()->setReverseMarkers(true);
     chart->setTheme(QChart::ChartThemeBlueCerulean);
 
-    chartView = new QChartView(chart);
+    chartView = new QChartView(this);
     chartView->setRenderHint(QPainter::Antialiasing);
     chartView->setFrameShape(QFrame::NoFrame);
     chartView->setMinimumHeight(4000);

@@ -1,10 +1,14 @@
 #include "timerbutton.hpp"
 
+#include <QEvent>
+#include <QGestureEvent>
+#include <QGesture>
+
 const QString TimerButton::timeFormat = "hh:mm:ss";
 //const QString TimerButton::timeFormat = "hh:mm:ss,zzz";
 
-TimerButton::TimerButton(const GoogleCalendar::Calendar& a_cal, QWidget* parent)
-    : TimerButton({"","",a_cal /*, QColor(a_cal.color_hex)*/}, parent)
+TimerButton::TimerButton(const GoogleCalendar::Calendar* a_cal, QWidget* parent)
+    : TimerButton(Data(a_cal), parent)
 {}
 
 TimerButton::TimerButton(const Data& a_data, QWidget* parent)
@@ -12,6 +16,8 @@ TimerButton::TimerButton(const Data& a_data, QWidget* parent)
 {
     reset();
     //this->setText(name + "\n\n" + display_timer.toString(timeFormat));
+
+    grabGesture(Qt::TapAndHoldGesture);
 }
 
 void TimerButton::start(){
@@ -25,7 +31,7 @@ void TimerButton::updateText(){
 }
 
 void TimerButton::reset(){
-    setName(data.name == "" ? data.calendar.name : data.name);
+    setName((data.name == "" && data.calendar != nullptr) ? data.calendar->name : data.name);
     display_timer = QDateTime::fromMSecsSinceEpoch(0).toTimeSpec(Qt::TimeSpec::UTC);
     this->setText(name_formatted);
     //updateText();
@@ -61,4 +67,20 @@ void TimerButton::setData(const TimerButton::Data & a_data)
 {
     data = a_data;
     reset();
+}
+
+bool TimerButton::event(QEvent *event)
+{
+    if (event->type() == QEvent::Gesture){
+        QGestureEvent * gestureEvent = static_cast<QGestureEvent*>(event);
+        if (gestureEvent->gesture(Qt::TapAndHoldGesture))
+            emit longPressed();
+    }
+
+    return QPushButton::event(event);
+}
+
+TimerButton::Data::Data(const GoogleCalendar::Calendar *cal)
+{
+    calendar = cal;
 }

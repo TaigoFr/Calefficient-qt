@@ -32,7 +32,7 @@ SettingsPage::SettingsPage(QWidget* parent) :
     QListWidget *priorities_section_listWidget = new QListWidget(priorities_section);
     priorities_section_listWidget->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     priorities_section_listWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    auto calendars = google.getOwnedCalendarList();
+    QVector<GoogleCalendar::Calendar> &calendars = google.getOwnedCalendarList();
     foreach(auto& calendar, calendars){
         QListWidgetItem* item = new QListWidgetItem(calendar.name, priorities_section_listWidget);
         priorities_section_listWidget->addItem(item);
@@ -161,10 +161,11 @@ SettingsPage::SettingsPage(QWidget* parent) :
     addWidget(reset_app_widget);
 }
 
-void SettingsPage::updateStyle(const QSize& size)
+void SettingsPage::updateStyle()
 {
-    setStyleSheet("font: " + QString::number((int)(size.height() * 0.025)) + "px;");
+    QSize window_size = window()->size();
+    setStyleSheet("font: " + QString::number((int)(window_size.height() * 0.025)) + "px;");
     resizeRowsToContents();
-    float margin = this->width() * 0.97;
-    reset_app_button->setFixedWidth(margin);
+    float width = window_size.width() * 0.97;
+    reset_app_button->setFixedWidth(width);
 }

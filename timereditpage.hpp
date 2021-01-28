@@ -19,21 +19,21 @@ class TimerEditPage: public QWidget
 public:
     TimerEditPage(QWidget * parent = nullptr);
 
-    void setCalendars(const QVector<GoogleCalendar::Calendar>& a_cals);
-    void setEditButton(TimerButton *button);
-
-    void updateStyle(const QSize& size);
+    void updateStyle();
+    TimerButton::Data getData() const;
+    void setData(const TimerButton::Data&);
 
 signals:
     void done(int success);
 
 private:
-    QVector<GoogleCalendar::Calendar> calendars;
-    TimerButton* edit_button;
+    void setCalendars();
 
+private:
     QLineEdit *eventNameEdit;
     QTextEdit *eventDescriptionEdit;
     QComboBox *calendarComboBox;
+
     //QPushButton *colorPickerButton;
     //QColorDialog *colorPickerDialog;
 

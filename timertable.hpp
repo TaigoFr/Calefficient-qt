@@ -6,6 +6,7 @@
 
 #include <QPushButton>
 #include <QTimer>
+#include <QToolButton>
 
 class TimerTable : public ScrollableTableWidget
 {
@@ -14,22 +15,27 @@ class TimerTable : public ScrollableTableWidget
 public:
     TimerTable(QWidget * parent = nullptr);
 
-    void setButtons(const QVector<GoogleCalendar::Calendar>& a_cals);
-
-    void updateStyle(const QSize& window_size);
-
+    void updateStyle();
     void clear();
+
+    void saveButtonOnEdit(const TimerButton::Data&);
 
 signals:
     void buttonClicked(TimerButton*);
+    void buttonLongPressed(TimerButton*);
+    void buttonCreated();
+    void plusButtonClicked();
 
 private:
+    void setButtons();
     void setupButton(QAbstractButton *button);
-    void addButton(const QVector<GoogleCalendar::Calendar>& a_cals, int cal_index);
+    TimerButton* addButton(const GoogleCalendar::Calendar*);
+    QToolButton* makePlusButton();
 
 private:
     QTimer update_timer;
     TimerButton* active_timer_button;
+    TimerButton* button_on_edit;
 };
 
 #endif // TIMERTABLE_H

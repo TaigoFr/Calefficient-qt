@@ -12,7 +12,7 @@ class SettingsPage : public ScrollableTableWidget
 public:
     SettingsPage(QWidget* parent = nullptr);
 
-    void updateStyle(const QSize& size);
+    void updateStyle();
 
 public:
     QSettings data;

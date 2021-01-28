@@ -24,18 +24,18 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
     enum{
-        SIGNIN
-        , MAIN
-        , TIMER_EDIT
+        SIGNIN_PAGE
+        , MAIN_TABS
+        , TIMER_EDIT_PAGE
 #if USE_INTERNAL_BROWSER
         , WEB
 #endif
     };
 
     enum{
-        TIMERS,
-        CHARTS,
-        SETTINGS
+        TIMERS_PAGE,
+        CHARTS_PAGE,
+        SETTINGS_PAGE
     };
 
 public:
@@ -46,7 +46,7 @@ signals:
     void onResize();
 
 private:
-    QWidget* makeMainFlow(QWidget* parent);
+    QWidget* makeMainTabs(QWidget* parent);
     QWidget* makeTimersPage(QWidget* parent);
     QWidget* makeSignInPage(QWidget* parent);
     QWidget* makeChartsPage(QWidget* parent);
@@ -63,13 +63,12 @@ private:
 
 private:
     Ui::MainWindow *ui;
-    GoogleCalendar google;
 
-    QStackedWidget flowPages;
-    QTabWidget mainTabs;
+    QStackedWidget *flowPages;
+    QTabWidget *mainTabs;
 
-    TimerTable timersTable;
-    TimerEditPage timerEditPage;
+    TimerTable *timersTable;
+    TimerEditPage *timerEditPage;
 
 #if USE_INTERNAL_BROWSER
     QWebEngineView webView;
