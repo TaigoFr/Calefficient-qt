@@ -5,7 +5,7 @@
 
 #include "settingspage.hpp"
 #include "signinpage.hpp"
-#include "chartspage.h"
+#include "chartspage.hpp"
 
 #include <QLabel>
 #include <QVBoxLayout>
@@ -32,7 +32,7 @@ MainWindow::MainWindow(QWidget *parent)
     #endif
 {
     GoogleCalendar::setCredentials(":/private/Calefficient_client_secret.json");
-    //GoogleCalendar::getInstance().deleteTokens();
+    //GoogleCalendar::getInstance().deleteSettings();
 
     ui->setupUi(this);
 
@@ -204,9 +204,9 @@ QWidget *MainWindow::makeChartsPage(QWidget *parent)
 
             ChartsPage::Profile profile;
 
-            QVector<GoogleCalendar::Calendar> &calendars = GoogleCalendar::getInstance().getOwnedCalendarList();
-            for(auto &calendar: calendars){
-                ChartsPage::CalendarSettings cal_settings(&calendar);
+            QVector<GoogleCalendar::Calendar*> &calendars = GoogleCalendar::getInstance().getOwnedCalendarList();
+            for(GoogleCalendar::Calendar *calendar: calendars){
+                ChartsPage::CalendarSettings cal_settings(calendar);
                 ChartsPage::TagSettings tag_settings;
                 tag_settings.active = true;
                 tag_settings.name = "Calefficient";

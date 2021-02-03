@@ -27,7 +27,7 @@ TimerTable::TimerTable(QWidget * parent) : ScrollableTableWidget(parent), active
 
 void TimerTable::setButtons()
 {
-    QVector<GoogleCalendar::Calendar> &calendars = GoogleCalendar::getInstance().getOwnedCalendarList();
+    QVector<GoogleCalendar::Calendar*> &calendars = GoogleCalendar::getInstance().getOwnedCalendarList();
 
     clear();
     setColumnCount(calendars.size() <= 3 ? 1 : 2);
@@ -36,8 +36,8 @@ void TimerTable::setButtons()
 
     //QVector<TimerButton*> buttons(a_cals.size());
     for (int r=0; r<repeat ; ++r)
-        for(auto &calendar : calendars)
-            addButton(&calendar);
+        for(GoogleCalendar::Calendar *calendar : calendars)
+            addButton(calendar);
 
     setupButton(makePlusButton());
     updateStyle();

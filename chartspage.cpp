@@ -1,4 +1,4 @@
-#include "chartspage.h"
+#include "chartspage.hpp"
 
 #include <QtConcurrent>
 #include <QSettings>
@@ -19,7 +19,7 @@ ChartsPage::ChartsPage(QWidget *parent): QWidget(parent), chartView(nullptr)
     vl->addWidget(scrollWidget);
 }
 
-ChartsPage::CalendarSettings::CalendarSettings(const GoogleCalendar::Calendar* cal) {
+ChartsPage::CalendarSettings::CalendarSettings(GoogleCalendar::Calendar* cal) {
     calendar = cal;
     if(calendar != nullptr)
         name = calendar->name;
@@ -206,7 +206,7 @@ void ChartsPage::showChartAnalysis(const ChartsPage::AnalysisResults &results)
     chart->legend()->setReverseMarkers(true);
     chart->setTheme(QChart::ChartThemeBlueCerulean);
 
-    chartView = new QChartView(this);
+    chartView = new QChartView(chart);
     chartView->setRenderHint(QPainter::Antialiasing);
     chartView->setFrameShape(QFrame::NoFrame);
     chartView->setMinimumHeight(4000);
@@ -221,14 +221,14 @@ void ChartsPage::showChartAnalysis(const ChartsPage::AnalysisResults &results)
     scrollWidget->addWidget(chartView);
 }
 
-QVector<const GoogleCalendar::Calendar*> ChartsPage::getActiveCalendars(const ChartsPage::Profile &profile)
+QVector<GoogleCalendar::Calendar*> ChartsPage::getActiveCalendars(const ChartsPage::Profile &profile)
 {
-    QVector<const GoogleCalendar::Calendar*> new_profile;
-    for(auto &calendar: profile)
-        if(calendar.active)
-            new_profile.push_back(calendar.calendar);
+    QVector<GoogleCalendar::Calendar*> active_calendars;
+    for(const CalendarSettings &calendar_settings: profile)
+        if(calendar_settings.active)
+            active_calendars.push_back(calendar_settings.calendar);
 
-    return new_profile;
+    return active_calendars;
 }
 
 int ChartsPage::findTagInString(const QString &str, const QVector<ChartsPage::TagSettings> &calendar_tags)

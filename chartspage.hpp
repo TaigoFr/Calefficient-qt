@@ -22,8 +22,8 @@ public:
     };
 
     struct CalendarSettings : public TagSettings{
-        CalendarSettings(const GoogleCalendar::Calendar* cal = nullptr);
-        const GoogleCalendar::Calendar *calendar;
+        CalendarSettings(GoogleCalendar::Calendar* cal = nullptr);
+        GoogleCalendar::Calendar *calendar;
         QVector<TagSettings> tags;
     };
 
@@ -54,7 +54,7 @@ private:
     ScrollableTableWidget *scrollWidget;
 
 private:
-    QVector<const GoogleCalendar::Calendar*> getActiveCalendars(const Profile& profile);
+    QVector<GoogleCalendar::Calendar*> getActiveCalendars(const Profile& profile);
     int findTagInString(const QString& str, const QVector<TagSettings>& calendar_tags);
 };
 

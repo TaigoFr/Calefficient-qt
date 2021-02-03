@@ -122,17 +122,17 @@ TimerEditPage::TimerEditPage(QWidget * parent)
 
 void TimerEditPage::setCalendars()
 {
-    QVector<GoogleCalendar::Calendar> &calendars = GoogleCalendar::getInstance().getOwnedCalendarList();
+    QVector<GoogleCalendar::Calendar*> &calendars = GoogleCalendar::getInstance().getOwnedCalendarList();
 
     calendarComboBox->clear();
     for (int c = 0; c<calendars.size(); ++c) {
-        calendarComboBox->addItem(calendars[c].name);
-        calendarComboBox->setItemData(c, QBrush(QColor(calendars[c].color_hex)), Qt::BackgroundRole);
+        calendarComboBox->addItem(calendars[c]->name);
+        calendarComboBox->setItemData(c, QBrush(QColor(calendars[c]->color_hex)), Qt::BackgroundRole);
     }
 
     void (QComboBox:: *itemChangeSignal)(int) = &QComboBox::currentIndexChanged;
     connect(calendarComboBox, itemChangeSignal, [this, calendars](int index){
-        QString color = calendars[index].color_hex;
+        QString color = calendars[index]->color_hex;
         calendarComboBox->setStyleSheet("background-color: " + color + ";");
         //colorPickerDialog->setCurrentColor(QColor(color));
         //updateStyle(parentWidget()->size());
@@ -144,14 +144,14 @@ void TimerEditPage::setData(const TimerButton::Data & data)
     eventNameEdit->setText(data.name);
     eventDescriptionEdit->setText(data.description);
 
-    QVector<GoogleCalendar::Calendar> &calendars = GoogleCalendar::getInstance().getOwnedCalendarList();
+    QVector<GoogleCalendar::Calendar*> &calendars = GoogleCalendar::getInstance().getOwnedCalendarList();
     if(calendars.size() > 0){
         if(data.calendar != nullptr)
             calendarComboBox->setCurrentText(data.calendar->name);
         else
-            calendarComboBox->setCurrentText(calendars[0].name);
+            calendarComboBox->setCurrentText(calendars[0]->name);
 
-        if(data.calendar == nullptr || data.calendar->id == calendars[0].id) // otherwise signal would not be emitted
+        if(data.calendar == nullptr || data.calendar->id == calendars[0]->id) // otherwise signal would not be emitted
             emit calendarComboBox->currentIndexChanged(0);
     }
     //colorPickerDialog->setCurrentColor(data.color);
@@ -182,13 +182,13 @@ void TimerEditPage::updateStyle()
 
 TimerButton::Data TimerEditPage::getData() const
 {
-    QVector<GoogleCalendar::Calendar> &calendars = GoogleCalendar::getInstance().getOwnedCalendarList();
+    QVector<GoogleCalendar::Calendar*> &calendars = GoogleCalendar::getInstance().getOwnedCalendarList();
 
     TimerButton::Data data;
     data.name = eventNameEdit->text();
     data.description = eventDescriptionEdit->toPlainText();
     //data.color = colorPickerDialog->currentColor();
-    data.calendar = &calendars[calendarComboBox->currentIndex()];
+    data.calendar = calendars[calendarComboBox->currentIndex()];
 
     return data;
 }

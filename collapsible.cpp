@@ -21,7 +21,7 @@
 #include <QPropertyAnimation>
 #include <QScrollBar>
 
-#include "collapsible.h"
+#include "collapsible.hpp"
 
 Collapsible::Collapsible(QWidget *parent)
         : QWidget(parent) {

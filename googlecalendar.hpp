@@ -7,6 +7,8 @@
 #include <QJsonDocument>
 #include <QSettings>
 #include <QColor>
+#include <QDataStream>
+#include <QTimer>
 
 class GoogleCalendar : public QOAuth2AuthorizationCodeFlow
 {
@@ -38,7 +40,14 @@ public:
       bool isPrimary;
       QString timeZone;
 
-      friend QDebug operator<<(QDebug dbg, const Calendar& c);
+      friend QDebug operator<<(QDebug dbg, const Calendar* c);
+
+      bool operator!=(const Calendar& other) const;
+      bool operator==(const Calendar& other) const;
+
+      // functions to allow writing to QSettings as a CustomType
+      friend QDataStream& operator<<(QDataStream& out, const Calendar& c);
+      friend QDataStream& operator>>(QDataStream& in, Calendar& c);
     };
 
     struct Event{
@@ -65,22 +74,34 @@ public:
     static bool isOnline();
     bool isSignedIn();
 
-    QVector<Calendar>& getOwnedCalendarList();
-    QVector<Event> getCalendarEvents(const Calendar& cal, const QDateTime &start, const QDateTime &end, const QString &key = "");
-    QVector<QVector<Event>> getMultipleCalendarEvents(const QVector<const Calendar*>& cal, const QDateTime &start, const QDateTime &end, const QString &key = "");
+    QVector<Calendar*>& getOwnedCalendarList();
+    QVector<Event> getCalendarEvents(Calendar* cal,
+                                     const QDateTime &start,
+                                     const QDateTime &end,
+                                     const QDateTime& minUpdateDate = QDateTime(),
+                                     const QString &key = "");
+    QVector<QVector<Event>> getMultipleCalendarEvents(const QVector<Calendar*>& cal,
+                                                      const QDateTime &start,
+                                                      const QDateTime &end,
+                                                      const QDateTime& minUpdateDate = QDateTime(),
+                                                      const QString &key = "");
     bool createEvent(Event& event);
-    bool moveEvent(Event& event, const Calendar& cal);
+    bool moveEvent(Event& event, const Calendar* cal);
     bool updateEvent(Event& event);
     bool deleteEvent(Event& event);
 
+    bool checkForUpdates();
+
     void deleteTokens();
+    void deleteSettings();
 
 signals:
     void signedIn();
-
+    void calendarsUpdated(const QVector<QString> deleted_ids, QVector<const Calendar*> created, QVector<const Calendar*> updated);
+    void eventsUpdated(QVector<QVector<Event>> events, QVector<QVector<QString>> deleted_ids);
 
 private:
-    void updateOwnedCalendarList();
+    QVector<Calendar> getUpdatedOwnedCalendarList();
     QNetworkReply* request_EventLoop(const Request& request);
     QVector<QNetworkReply*> request_MultipleEventLoop(const QVector<Request>& requests);
     bool checkAuthentication();
@@ -88,9 +109,16 @@ private:
 
     QString QDateTimeToRFC3339Format(const QDateTime&);
     QDateTime QDateTimeFromRFC3339Format(const QString&);
-    void UpdateEventFromJsonObject(Event &event, const QJsonObject &item);
+    void updateEventFromJsonObject(Event &event, const QJsonObject &item);
 
     bool createOrUpdateEvent(Event& event, bool update);
+
+    void sortCalendars();
+
+    bool checkForCalendarUpdates();
+    bool checkForEventUpdates();
+    void setCalendarsInSettings();
+    void getCalendarsFromSettings();
 
 private:
     QJsonDocument m_credentials;
@@ -98,11 +126,16 @@ private:
 
     QSettings m_settings;
     QDateTime m_expirationDate;
+    QDateTime m_last_date_checked;
 
-    QVector<Calendar> calendars;
+    QVector<Calendar*> m_calendars;
 
     static GoogleCalendar* instance;
+    QTimer updateTimer;
 };
+
+
+Q_DECLARE_METATYPE(GoogleCalendar::Calendar)
 
 
 #endif // GOOGLEOAUTH2_HPP

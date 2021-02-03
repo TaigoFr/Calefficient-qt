@@ -15,11 +15,15 @@ GoogleCalendar *GoogleCalendar::instance = nullptr;
 
 GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Calefficient", "GoogleCalendar")
 {
+    qRegisterMetaTypeStreamOperators<QVector<Calendar>>("QVector<Calendar>");
+
     readCrendentials(credentials_file);
 
     QString token_str = m_settings.value("token").toString();
     QString refreshToken_str = m_settings.value("refreshToken").toString();
     QDateTime expirationDate = m_settings.value("expirationDate").toDateTime();
+    QDateTime last_date_checked = m_settings.value("last_date_checked").toDateTime();
+    getCalendarsFromSettings();
 
     if(token_str != "")
         setToken(token_str);
@@ -28,10 +32,16 @@ GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Ca
     if(expirationDate.isValid())
         m_expirationDate = expirationDate;
 
+    if(last_date_checked.isValid())
+        m_last_date_checked = last_date_checked;
+    else
+        m_last_date_checked = QDateTime::currentDateTimeUtc();
+
     qDebug() << "START";
     qDebug() << token_str;
     qDebug() << refreshToken_str;
     qDebug() << expirationDate;
+    qDebug() << m_last_date_checked;
 
     // not needed for refreshing the token, just for grant
     {
@@ -49,27 +59,36 @@ GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Ca
         qDebug() << "tokenChanged!!!!" ;
         qDebug() << "Token changed: " << token() << "\n\n\n";
         m_settings.setValue("token", token());
+        m_settings.sync();
     });
     connect(this, &QOAuth2AuthorizationCodeFlow::refreshTokenChanged, [this](){
         qDebug() << "refreshTokenChanged!!!!" ;
         qDebug() << "Refresh token changed: " << refreshToken() << "\n\n\n";
         m_settings.setValue("refreshToken", refreshToken());
+        m_settings.sync();
     });
     connect(this, &QOAuth2AuthorizationCodeFlow::expirationAtChanged, [this](){
         qDebug() << "expirationAtChanged!!!!" ;
         qDebug() << "Date changed: " << expirationAt() << "\n\n\n";
-        m_settings.setValue("expirationDate", expirationAt());
-        m_expirationDate = expirationAt();
+        m_expirationDate = expirationAt().toUTC();
+        m_settings.setValue("expirationDate", m_expirationDate);
+        m_settings.sync();
     });
     connect(this, &QOAuth2AuthorizationCodeFlow::granted, [this](){
         qDebug() << "GRANTED!";
         emit signedIn();
     });
+
+    updateTimer.start(5000);
+    connect(&updateTimer, &QTimer::timeout, this, &GoogleCalendar::checkForUpdates);
 }
 
 GoogleCalendar::~GoogleCalendar()
 {
     delete m_replyHandler;
+
+    for(Calendar* cal: m_calendars)
+        delete cal;
 }
 
 void GoogleCalendar::setCredentials(const QString &credentials)
@@ -82,11 +101,33 @@ GoogleCalendar &GoogleCalendar::getInstance()
     return *instance;
 }
 
-QDebug operator<<(QDebug dbg, const GoogleCalendar::Calendar& c){
-    dbg.nospace() << "Calendar " << c.name << " [" << c.id << "]:\nColor = " << c.color_hex
-                  << "; isSelected = " << c.isSelected << "; isPrimary = " << c.isPrimary
-                  << "; timeZone = " << c.timeZone << "\n";
+QDebug operator<<(QDebug dbg, const GoogleCalendar::Calendar* c){
+    dbg.nospace() << "Calendar " << c->name << " [" << c->id << "]:\nColor = " << c->color_hex
+                  << "; isSelected = " << c->isSelected << "; isPrimary = " << c->isPrimary
+                  << "; timeZone = " << c->timeZone << "\n";
     return dbg.maybeSpace();
+}
+
+bool GoogleCalendar::Calendar::operator!=(const GoogleCalendar::Calendar& other) const
+{ return !(*this == other); }
+bool GoogleCalendar::Calendar::operator==(const GoogleCalendar::Calendar& other) const{
+    assert(id == other.id);
+    return (name == other.name &&
+            color_hex == other.color_hex &&
+            isSelected == other.isSelected &&
+            isPrimary == other.isPrimary &&
+            timeZone == other.timeZone);
+}
+
+// functions to allow writing to QSettings as a CustomType
+QDataStream& operator<<(QDataStream& out, const GoogleCalendar::Calendar& c) {
+    out << c.name << c.color_hex << c.id << c.isSelected << c.isPrimary << c.timeZone;
+    return out;
+}
+
+QDataStream& operator>>(QDataStream& in, GoogleCalendar::Calendar& c) {
+    in >> c.name >> c.color_hex >> c.id >> c.isSelected >> c.isPrimary >> c.timeZone;
+    return in;
 }
 
 QDebug operator<<(QDebug dbg, const GoogleCalendar::Event& e){
@@ -97,26 +138,33 @@ QDebug operator<<(QDebug dbg, const GoogleCalendar::Event& e){
     return dbg.maybeSpace();
 }
 
-QVector<GoogleCalendar::Calendar>& GoogleCalendar::getOwnedCalendarList()
+QVector<GoogleCalendar::Calendar*>& GoogleCalendar::getOwnedCalendarList()
 {
     static QMutex mutex;
     mutex.lock();
-    if(calendars.size() == 0)
-        updateOwnedCalendarList();
+    if(m_calendars.size() == 0){
+        auto updated_calendars = getUpdatedOwnedCalendarList();
+        for(Calendar &cal : updated_calendars)
+            m_calendars.push_back(new Calendar(cal));
+        sortCalendars();
+        setCalendarsInSettings();
+    }
     mutex.unlock();
 
-    return calendars;
+    return m_calendars;
 }
 
 
-void GoogleCalendar::updateOwnedCalendarList()
+QVector<GoogleCalendar::Calendar> GoogleCalendar::getUpdatedOwnedCalendarList()
 {
+    QVector<Calendar> updated_calendars;
+
     Request request;
     request.url = "https://www.googleapis.com/calendar/v3/users/me/calendarList";
     request.parameters["showHidden"] = true;
     QNetworkReply* reply = request_EventLoop(request);
     if(reply == nullptr || reply->error() != QNetworkReply::NoError)
-        return;
+        return updated_calendars;
 
     QString response = reply->readAll();
     QJsonDocument json = QJsonDocument::fromJson(response.toUtf8());
@@ -141,36 +189,30 @@ void GoogleCalendar::updateOwnedCalendarList()
             calendar.isPrimary = item["primary"].toBool();
         calendar.timeZone = item["timeZone"].toString();
 
-        calendars.push_back(calendar);
+        updated_calendars.push_back(calendar);
     }
-
-    // sort by primary, then selected, then name
-    std::sort(calendars.begin(), calendars.end(), [](const Calendar& c1, const Calendar &c2){
-        if(c1.isPrimary)
-            return true;
-        if(c2.isPrimary)
-            return false;
-        if(c1.isSelected && !c2.isSelected)
-            return true;
-        if(!c1.isSelected && c2.isSelected)
-            return false;
-        return c1.name < c2.name;
-    });
 
     // reply = get_EventLoop("https://www.googleapis.com/oauth2/v1/userinfo", options);
     // qDebug() << reply->readAll();
+
+    return updated_calendars;
 }
 
-QVector<GoogleCalendar::Event> GoogleCalendar::getCalendarEvents(const GoogleCalendar::Calendar &cal, const QDateTime &start, const QDateTime &end, const QString& key)
+QVector<GoogleCalendar::Event> GoogleCalendar::getCalendarEvents(GoogleCalendar::Calendar *cal,
+                                                                 const QDateTime &start,
+                                                                 const QDateTime &end,
+                                                                 const QDateTime& minUpdateDate,
+                                                                 const QString& key)
 {
-    QVector<QVector<GoogleCalendar::Event>> list = getMultipleCalendarEvents({&cal}, start, end, key);
+    QVector<QVector<GoogleCalendar::Event>> list = getMultipleCalendarEvents({cal}, start, end, minUpdateDate, key);
     return list[0];
 }
 
 QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvents(
-        const QVector<const GoogleCalendar::Calendar*> &cals,
+        const QVector<GoogleCalendar::Calendar*> &cals,
         const QDateTime &start,
         const QDateTime &end,
+        const QDateTime& minUpdateDate,
         const QString& key)
 {
     QVector<QVector<GoogleCalendar::Event>> events;
@@ -178,10 +220,9 @@ QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvent
 
     static const int MAX_RESULTS = 250; // 2500 is maximum, 250 default
 
-    for(auto *cal: cals)
+    for(const GoogleCalendar::Calendar *cal: cals)
     {
         Q_ASSERT(cal->id != "");
-        Q_ASSERT(end > start);
 
         events.push_back(QVector<GoogleCalendar::Event>());
 
@@ -193,9 +234,17 @@ QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvent
         if(key!="")
             request.parameters["q"] = key;
         request.parameters["singleEvents"] = true;
-        request.parameters["timeMin"] = QDateTimeToRFC3339Format(start);
-        request.parameters["timeMax"] = QDateTimeToRFC3339Format(end);
+        if(start.isValid())
+            request.parameters["timeMin"] = QDateTimeToRFC3339Format(start);
+        if(end.isValid())
+            request.parameters["timeMax"] = QDateTimeToRFC3339Format(end);
         request.parameters["maxResults"] = MAX_RESULTS;
+
+        if(minUpdateDate.isValid()){
+            request.parameters["updatedMin"] = QDateTimeToRFC3339Format(minUpdateDate);
+            // request.parameters["showDeleted"] = true; // already default when 'updateMin' is provided
+        }
+
         requests.push_back(request);
     }
 
@@ -207,7 +256,7 @@ QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvent
         if(reply == nullptr || reply->error() != QNetworkReply::NoError)
             continue;
 
-        const Calendar *cal = cals[c];
+        Calendar *cal = cals[c];
 
         if(reply == nullptr)
             return events;
@@ -221,7 +270,7 @@ QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvent
             QJsonObject item = items[i].toObject();
 
             Event event;
-            UpdateEventFromJsonObject(event, item);
+            updateEventFromJsonObject(event, item);
             event.calendar = cal;
             events[c].push_back(event);
         }
@@ -230,7 +279,7 @@ QVector<QVector<GoogleCalendar::Event>> GoogleCalendar::getMultipleCalendarEvent
         if(items.size() == MAX_RESULTS){
             // start at last event's start, to ensure any event between event.start and event.end is also consider
             // but then discard the same event that was drawn twice (assumes return comes ordered in time)
-            QVector<GoogleCalendar::Event> extra_events = getCalendarEvents(*cal, events[c].back().start, end, key);
+            QVector<GoogleCalendar::Event> extra_events = getCalendarEvents(cal, events[c].back().start, end, minUpdateDate, key);
             extra_events.removeFirst();
             events[c].append(extra_events);
         }
@@ -245,13 +294,13 @@ bool GoogleCalendar::createEvent(GoogleCalendar::Event &event)
     return createOrUpdateEvent(event, update);
 }
 
-bool GoogleCalendar::moveEvent(GoogleCalendar::Event &event, const GoogleCalendar::Calendar &cal)
+bool GoogleCalendar::moveEvent(GoogleCalendar::Event &event, const GoogleCalendar::Calendar *cal)
 {
     Q_ASSERT(event.calendar != nullptr);
 
     Request request;
     request.url = "https://www.googleapis.com/calendar/v3/calendars/" + event.calendar->id + "/events/" + event.id + "/move";
-    request.parameters["destination"] = cal.id;
+    request.parameters["destination"] = cal->id;
     request.type = POST;
 
     QNetworkReply* reply = request_EventLoop(request);
@@ -264,9 +313,9 @@ bool GoogleCalendar::moveEvent(GoogleCalendar::Event &event, const GoogleCalenda
         QString response = reply->readAll();
         QJsonDocument json = QJsonDocument::fromJson(response.toUtf8());
         QJsonObject object = json.object();
-        UpdateEventFromJsonObject(event, object);
-        Q_ASSERT(cal.id == event.organizerId);
-        event.calendar = &cal;
+        updateEventFromJsonObject(event, object);
+        Q_ASSERT(cal->id == event.organizerId);
+        event.calendar = cal;
     }
 
     return success;
@@ -293,11 +342,125 @@ bool GoogleCalendar::deleteEvent(GoogleCalendar::Event &event)
     return success;
 }
 
-QNetworkReply* GoogleCalendar::request_EventLoop(const Request &request){
+bool GoogleCalendar::checkForUpdates()
+{
+    qDebug() << "HERE";
+    return checkForCalendarUpdates() || checkForEventUpdates();
+}
+
+
+bool GoogleCalendar::checkForEventUpdates()
+{
+    QVector<QVector<Event>> new_events = getMultipleCalendarEvents(
+                m_calendars, QDateTime() /*start*/, QDateTime() /*end*/, m_last_date_checked);
+
+
+    m_last_date_checked = QDateTime::currentDateTimeUtc();
+    m_settings.setValue("last_date_checked", m_last_date_checked);
+    m_settings.sync();
+
+    QVector<QVector<QString>> deleted_ids(new_events.size());
+    QVector<QVector<Event>> updated_events(new_events.size());
+
+    bool new_exist = false;
+    for(int i = 0; i < new_events.size(); ++i){
+        for(Event& event: new_events[i]){
+            new_exist = true;
+            if(event.start.isValid())
+                updated_events[i].push_back(event);
+            else
+                deleted_ids[i].push_back(event.id);
+        }
+    }
+
+    if(new_exist){
+        qDebug() << new_events;
+
+        emit eventsUpdated(updated_events, deleted_ids);
+        return true;
+    }
+
+    return false;
+}
+
+void GoogleCalendar::setCalendarsInSettings()
+{
+    QVector<Calendar> store;
+    for(Calendar *cal: m_calendars)
+        store.push_back(*cal);
+    m_settings.setValue("calendars", QVariant::fromValue(store));
+    m_settings.sync(); // force
+}
+
+void GoogleCalendar::getCalendarsFromSettings()
+{
+    QVector<Calendar> read = m_settings.value("calendars").value<QVector<Calendar>>();
+    for(Calendar &cal: read)
+        m_calendars.push_back(new Calendar(cal));
+    qDebug() << m_calendars;
+}
+
+
+bool GoogleCalendar::checkForCalendarUpdates()
+{
+    QVector<Calendar> updated_calendars = getUpdatedOwnedCalendarList();
+
+    QVector<QString> deleted_ids;
+    QVector<const Calendar*> created, updated;
+
+    QMap<QString, int> dict;
+    for(Calendar &cal : updated_calendars)
+        dict[cal.id] = -1;
+
+    for(int i = 0; i < m_calendars.size(); ++i){
+        Calendar *cal = m_calendars[i];
+        if(dict.find(cal->id) == dict.end()){
+            deleted_ids.push_back(cal->id);
+            m_calendars.remove(i);
+            delete cal;
+            --i; // calendars shift after remove
+        }
+        else{
+            dict[cal->id] = i;
+        }
+    }
+
+    for(int i = 0; i < updated_calendars.size(); ++i){
+        const Calendar &cal = updated_calendars[i];
+        int idx = dict[cal.id];
+        if(idx == -1){
+            Calendar* new_cal = new Calendar(cal);
+            m_calendars.push_back(new_cal);
+            created.push_back(new_cal);
+        }
+        else{
+            if(cal != (*m_calendars[idx])){
+                *m_calendars[idx] = cal;
+                updated.push_back(m_calendars[idx]);
+            }
+        }
+    }
+
+    if(created.size() || updated.size())
+        sortCalendars();
+
+    if(deleted_ids.size() || created.size() || updated.size()){
+        qDebug() << "deleted_ids" << deleted_ids;
+        qDebug() << "created" << created;
+        qDebug() << "updated" << updated;
+        setCalendarsInSettings();
+        emit calendarsUpdated(deleted_ids, created, updated);
+        return true;
+    }
+
+    return false;
+}
+
+QNetworkReply* GoogleCalendar::request_EventLoop(const Request &request)
+{
     QVector<QNetworkReply*> list = request_MultipleEventLoop({request});
     return list[0];
 }
-
 
 QVector<QNetworkReply*> GoogleCalendar::request_MultipleEventLoop(const QVector<Request>& requests)
 {
@@ -377,7 +540,7 @@ bool GoogleCalendar::checkAuthentication()
         qDebug() << "Are you sure you want to get here?";
         success = false;
     }
-    else if(m_expirationDate < QDateTime::currentDateTime()){
+    else if(m_expirationDate < QDateTime::currentDateTimeUtc()){
         if(isOnline()){
             QEventLoop loop;
             QTimer timer;
@@ -469,9 +632,15 @@ QDateTime GoogleCalendar::QDateTimeFromRFC3339Format(const QString &str)
     return date.toUTC();
 }
 
-void GoogleCalendar::UpdateEventFromJsonObject(Event &event, const QJsonObject &item)
+void GoogleCalendar::updateEventFromJsonObject(Event &event, const QJsonObject &item)
 {
     event.id = item["id"].toString();
+    if(item.contains("status")){
+        QString status = item["status"].toString();
+        if(status == "cancelled")
+            return;
+    }
+
     event.htmlLink = item["htmlLink"].toString();
 
     QJsonObject start = item["start"].toObject();
@@ -503,7 +672,6 @@ void GoogleCalendar::UpdateEventFromJsonObject(Event &event, const QJsonObject &
 bool GoogleCalendar::createOrUpdateEvent(GoogleCalendar::Event &event, bool update)
 {
     Q_ASSERT(event.calendar != nullptr);
-
 
     Request request;
 
@@ -541,12 +709,27 @@ bool GoogleCalendar::createOrUpdateEvent(GoogleCalendar::Event &event, bool upda
         QString response = reply->readAll();
         QJsonDocument json = QJsonDocument::fromJson(response.toUtf8());
         QJsonObject object = json.object();
-        UpdateEventFromJsonObject(event, object);
+        updateEventFromJsonObject(event, object);
     }
 
     return success;
 }
 
+void GoogleCalendar::sortCalendars()
+{
+    // sort by primary, then selected, then name
+    std::sort(m_calendars.begin(), m_calendars.end(), [](const Calendar* c1, const Calendar *c2){
+        if(c1->isPrimary)
+            return true;
+        if(c2->isPrimary)
+            return false;
+        if(c1->isSelected && !c2->isSelected)
+            return true;
+        if(!c1->isSelected && c2->isSelected)
+            return false;
+        return c1->name < c2->name;
+    });
+}
 
 // https://stackoverflow.com/questions/13779789/monitoring-internet-connection-status
 bool GoogleCalendar::isOnline()
@@ -578,10 +761,21 @@ bool GoogleCalendar::isSignedIn()
 {
     return token() != "";
 }
+
 void GoogleCalendar::deleteTokens()
 {
     setToken("");
     setRefreshToken("");
     m_settings.remove("expirationDate");
     m_expirationDate = QDateTime();
+}
+
+void GoogleCalendar::deleteSettings()
+{
+    deleteTokens();
+    m_settings.clear();
+    m_last_date_checked = QDateTime();
+    for(Calendar* cal: m_calendars)
+        delete cal;
+    m_calendars.clear();
 }
