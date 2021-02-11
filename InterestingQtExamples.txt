@@ -1,0 +1,28 @@
+Extending QML - Series
+Getting Started Programming with Qt Quick (alarms)
+
+Pie Chart Customization Example
+Qt Quick Examples - Key Interaction
+Qt Quick Extras - Flat
+Qt Quick Controls 1 - Calendar Example
+System Tray Icon Example
+Qt Notifier
+Qt Quick Controls - Side Panel
+Qt Quick Examples - Drag and Drop
+
+Miguel:
+Qt Quick Controls - Gallery
+Qt Quick Extras - Gallery
+WebEngine Notifications Example
+Qt Quick Controls 1 - Styles Example
+Qt Quick Controls - Swipe to Remove
+Qt Quick Examples - Views (see Expanding Delegates and Object Model)
+
+See in the future:
+Qt Quick Controls - Wearable Demo
+Pinch Zoom Example (how to pinch and how to paint figures)
+Pad Navigator Example (welcome message for tutorial)
+Custom Chart Example (useful Linear Gradient of Colours)
+Qt Quick Examples - Text
+Android Service with Qt Remote Objects
+Qt Quick Examples - Shader Effects

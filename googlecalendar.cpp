@@ -79,8 +79,8 @@ GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Ca
         emit signedIn();
     });
 
-    updateTimer.start(5000);
-    connect(&updateTimer, &QTimer::timeout, this, &GoogleCalendar::checkForUpdates);
+    //updateTimer.start(5000);
+    //connect(&updateTimer, &QTimer::timeout, this, &GoogleCalendar::checkForUpdates);
 }
 
 GoogleCalendar::~GoogleCalendar()

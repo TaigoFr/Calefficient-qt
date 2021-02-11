@@ -101,7 +101,7 @@ QWidget* MainWindow::makeMainTabs(QWidget* parent)
 {
     mainTabs = new QTabWidget(parent);
 
-    // TIMERSx
+    // TIMERS
     mainTabs->addTab(makeTimersPage(mainTabs), QIcon(":/resources/images/timer_icon.png"), "&" + QString::number(TIMERS_PAGE));
     mainTabs->setTabToolTip(0, "Tooltip");
     mainTabs->addTab(makeChartsPage(mainTabs), QIcon(":/resources/images/stats_icon.png"), "&" + QString::number(CHARTS_PAGE));

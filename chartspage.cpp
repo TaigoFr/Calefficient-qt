@@ -209,7 +209,7 @@ void ChartsPage::showChartAnalysis(const ChartsPage::AnalysisResults &results)
     chartView = new QChartView(chart);
     chartView->setRenderHint(QPainter::Antialiasing);
     chartView->setFrameShape(QFrame::NoFrame);
-    chartView->setMinimumHeight(4000);
+    chartView->setMinimumHeight(700);
     chart->setAcceptTouchEvents(true);
     chart->setAcceptHoverEvents(true);
     //chart->setFiltersChildEvents(true);
