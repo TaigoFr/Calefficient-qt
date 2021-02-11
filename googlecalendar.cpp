@@ -109,7 +109,9 @@ QDebug operator<<(QDebug dbg, const GoogleCalendar::Calendar* c){
 }
 
 bool GoogleCalendar::Calendar::operator!=(const GoogleCalendar::Calendar& other) const
-{ return !(*this == other); }
+{
+    return !(*this == other);
+}
 bool GoogleCalendar::Calendar::operator==(const GoogleCalendar::Calendar& other) const{
     assert(id == other.id);
     return (name == other.name &&

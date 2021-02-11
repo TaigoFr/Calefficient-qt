@@ -22,6 +22,7 @@ SettingsPage::SettingsPage(QWidget* parent) :
     QString calculate_empty_slots_setting = data.value("calculate_empty_slots").toString();
     QString warn_empty_slots_setting = data.value("warn_empty_slots").toString();
     QString ignore_24h_events_setting = data.value("ignore_24h_events").toString();
+    QString min_time_setting = data.value("min_time").toString();
 
     setColumnCount(1);
 
@@ -144,6 +145,25 @@ SettingsPage::SettingsPage(QWidget* parent) :
     });
     ignore_24h_events_layout->addWidget(ignore_24h_events_checkbox);
 
+    QWidget* min_time_widget = new QWidget(this);
+    QHBoxLayout* min_time_layout = new QHBoxLayout();
+    min_time_widget->setLayout(min_time_layout);
+    min_time_layout->addWidget(new QLabel("min_time"));
+    QSpacerItem* min_time_spacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Ignored);
+    min_time_layout->addSpacerItem(min_time_spacer);
+    QComboBox* min_time_combobox = new QComboBox(min_time_widget);
+    min_time_combobox->addItems(QStringList() << "0.1" << "1" << "5" << "15");
+    if(min_time_setting != "")
+        min_time_combobox->setCurrentText(min_time_setting);
+    else {
+        min_time_combobox->setCurrentText("0.1");
+        data.setValue("min_time", "0.1");
+    }
+    connect(min_time_combobox, &QComboBox::currentTextChanged, [this](const QString &text){
+        data.setValue("min_time", text);
+    });
+    min_time_layout->addWidget(min_time_combobox);
+
 
     QWidget* reset_app_widget = new QWidget(this);
     reset_app_button = new QPushButton("Delete all data", reset_app_widget);
@@ -158,6 +178,7 @@ SettingsPage::SettingsPage(QWidget* parent) :
     addWidget(calculate_empty_slots_widget);
     addWidget(warn_empty_slots_widget);
     addWidget(ignore_24h_events_widget);
+    addWidget(min_time_widget);
     addWidget(reset_app_widget);
 }
 

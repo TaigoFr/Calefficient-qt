@@ -47,7 +47,7 @@ public:
 
       // functions to allow writing to QSettings as a CustomType
       friend QDataStream& operator<<(QDataStream& out, const Calendar& c);
-      friend QDataStream& operator>>(QDataStream& in, Calendar& c);
+      friend QDataStream &operator<<(QDataStream &in, Calendar& c);
     };
 
     struct Event{

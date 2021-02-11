@@ -52,16 +52,42 @@ TimerButton* TimerTable::addButton(const GoogleCalendar::Calendar* a_cal)
         if(getScrolled())
             return;
 
-        if(active_timer_button != nullptr)
-            active_timer_button->reset();
+        bool activated = active_timer_button != nullptr;
+        bool isSame = button == active_timer_button;
+        TimerButton *save_active = active_timer_button;
 
-        if(active_timer_button == button){
-            button->reset();
-            active_timer_button = nullptr;
-        } else {
+        if(!isSame){
             button->start();
             active_timer_button = button;
             update_timer.start(1000); // every 1000ms
+        }
+
+        if(activated){
+            save_active->reset();
+            if(isSame)
+                active_timer_button = nullptr;
+
+            QSettings data("Calefficient", "Settings");
+            QString min_time_setting = data.value("min_time").toString();
+            qDebug() << min_time_setting.toFloat();
+
+            if(save_active->getElapsedTime() >= min_time_setting.toFloat() * 1000 * 60){
+                GoogleCalendar::Event event;
+                TimerButton::Data timer_button_data = save_active->getData();
+                event.name = (timer_button_data.name == "" && !timer_button_data.calendar->isPrimary) ?
+                            timer_button_data.calendar->name : timer_button_data.name;
+                event.description = timer_button_data.description;
+                event.start = save_active->getStart();
+                if(isSame)
+                    event.end = save_active->getStart().addMSecs(save_active->getElapsedTime());
+                else
+                    event.end = button->getStart(); // force end date from this event to be the start date of the next
+                event.calendar = timer_button_data.calendar;
+
+                qDebug() << event;
+                GoogleCalendar::getInstance().createEvent(event);
+                qDebug() << event;
+            }
         }
 
         emit buttonClicked(button);
@@ -129,9 +155,9 @@ void TimerTable::updateStyle()
                               //"width: " + QString::number(button_width) + "px;"
                               //"height: " + QString::number(button_width) + "px;"
                               "margin-left: " + QString::number(c==0 ? spacing : spacing/2) + "px;"
-                              "margin-right: " + QString::number(c==columnCount()-1 ? spacing : spacing/2) + "px;"
-                              "margin-top: " + QString::number(r==0 ? spacing : spacing/2) + "px;"
-                              "margin-bottom: " + QString::number(r==rowCount()-1 ? spacing : spacing/2) + "px;"
+                                                                                              "margin-right: " + QString::number(c==columnCount()-1 ? spacing : spacing/2) + "px;"
+                                                                                                                                                                             "margin-top: " + QString::number(r==0 ? spacing : spacing/2) + "px;"
+                                                                                                                                                                                                                                            "margin-bottom: " + QString::number(r==rowCount()-1 ? spacing : spacing/2) + "px;"
                               //"background-repeat: no-repeat;"
                               //"background-origin: content;"
                               //"background-image: url(\":/resources/images/play_icon.png\");"

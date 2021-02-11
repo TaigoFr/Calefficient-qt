@@ -26,8 +26,8 @@ void TimerButton::start(){
 }
 
 void TimerButton::updateText(){
-    display_timer = display_timer.fromMSecsSinceEpoch(time.msecsTo(QDateTime::currentDateTime())).toTimeSpec(Qt::TimeSpec::UTC);
-    this->setText(name_formatted + "\n\n" +display_timer.toString(timeFormat));
+    display_timer = display_timer.fromMSecsSinceEpoch(getElapsedTime()).toTimeSpec(Qt::TimeSpec::UTC);
+    this->setText(name_formatted + "\n\n" + display_timer.toString(timeFormat));
 }
 
 void TimerButton::reset(){
@@ -67,6 +67,16 @@ void TimerButton::setData(const TimerButton::Data & a_data)
 {
     data = a_data;
     reset();
+}
+
+QDateTime TimerButton::getStart()
+{
+    return time;
+}
+
+float TimerButton::getElapsedTime()
+{
+    return time.msecsTo(QDateTime::currentDateTime());
 }
 
 bool TimerButton::event(QEvent *event)

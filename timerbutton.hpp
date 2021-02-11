@@ -32,6 +32,9 @@ public:
     const Data &getData();
     void setData(const Data&);
 
+    QDateTime getStart();
+    float getElapsedTime();
+
 signals:
     void longPressed();
 
