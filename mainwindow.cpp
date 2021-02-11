@@ -239,9 +239,11 @@ QWidget *MainWindow::makeTimerEditPage(QWidget *parent)
 {
     timerEditPage = new TimerEditPage(parent);
 
-    connect(timerEditPage, &TimerEditPage::done, [this](int sucess){
-        if(sucess)
+    connect(timerEditPage, &TimerEditPage::done, [this](TimerEditPage::Result result){
+        if(result == TimerEditPage::SAVE)
             timersTable->saveButtonOnEdit(timerEditPage->getData());
+        else if(result == TimerEditPage::DELETE)
+            timersTable->deleteButtonOnEdit();
         flowPages->setCurrentIndex(MAIN_TABS);
     });
 

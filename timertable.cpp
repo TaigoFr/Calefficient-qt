@@ -5,6 +5,10 @@
 
 TimerTable::TimerTable(QWidget * parent) : ScrollableTableWidget(parent), active_timer_button(nullptr), button_on_edit(nullptr)
 {
+    // allow writing to QSettings as a CustomType
+    qRegisterMetaTypeStreamOperators<QVector<TimerButton::Data>>("QVector<TimerButton::TimerButton>");
+
+
     connect(&update_timer, &QTimer::timeout, [=](){
         if(active_timer_button != nullptr)
             active_timer_button->updateText();
@@ -19,7 +23,6 @@ TimerTable::TimerTable(QWidget * parent) : ScrollableTableWidget(parent), active
     else
     {
         connect(&GoogleCalendar::getInstance(), &GoogleCalendar::signedIn, [this](){
-            qDebug() << "WRONG";
             setButtons();
         });
     }
@@ -27,25 +30,32 @@ TimerTable::TimerTable(QWidget * parent) : ScrollableTableWidget(parent), active
 
 void TimerTable::setButtons()
 {
-    QVector<GoogleCalendar::Calendar*> &calendars = GoogleCalendar::getInstance().getOwnedCalendarList();
-
     clear();
-    setColumnCount(calendars.size() <= 3 ? 1 : 2);
+    setColumnCount(2);
 
-    int repeat = 1;
+    QVector<TimerButton::Data> datas = getTimersFromSettings();
 
-    //QVector<TimerButton*> buttons(a_cals.size());
-    for (int r=0; r<repeat ; ++r)
+    if(datas.size() == 0){
+        QVector<GoogleCalendar::Calendar*> &calendars = GoogleCalendar::getInstance().getOwnedCalendarList();
         for(GoogleCalendar::Calendar *calendar : calendars)
-            addButton(calendar);
+            addButton(calendar, false);
+        setTimersInSettings();
+    }
+    else{
+        for(TimerButton::Data &data: datas){
+            TimerButton* button = addButton(data.calendar, false);
+            button->setData(data);
+        }
+    }
 
     setupButton(makePlusButton());
     updateStyle();
 }
 
-TimerButton* TimerTable::addButton(const GoogleCalendar::Calendar* a_cal)
+TimerButton* TimerTable::addButton(const GoogleCalendar::Calendar* a_cal, bool saveToSettings)
 {
     TimerButton *button = new TimerButton(a_cal, this);
+    m_added_timers.push_back(button);
     setupButton(button);
 
     connect(button, &QPushButton::clicked, [=](){
@@ -97,6 +107,9 @@ TimerButton* TimerTable::addButton(const GoogleCalendar::Calendar* a_cal)
         emit buttonLongPressed(button);
     });
 
+    if(saveToSettings)
+        setTimersInSettings();
+
     return button;
 }
 
@@ -116,6 +129,20 @@ QToolButton *TimerTable::makePlusButton()
     return plus;
 }
 
+void TimerTable::setTimersInSettings()
+{
+    QSettings settings("Calefficient", "Settings");
+    QVector<TimerButton::Data> store;
+    for(TimerButton *button: m_added_timers)
+        store.push_back(button->getData());
+    settings.setValue("timers", QVariant::fromValue(store));
+}
+
+QVector<TimerButton::Data> TimerTable::getTimersFromSettings()
+{
+    QSettings settings("Calefficient", "Settings");
+    return settings.value("timers").value<QVector<TimerButton::Data>>();
+}
 void TimerTable::updateStyle()
 {
     QSize window_size = window()->size();
@@ -133,6 +160,9 @@ void TimerTable::updateStyle()
         int c = w % columnCount();
 
         QWidget* widget = cellWidget(r,c);
+        if(widget == nullptr) // temporary while 'delete' is causing empty spots, can be removed after delete is working properly
+            continue;
+
         QColor background_color;
         if(w==widgetCount()-1){ // plus button
             background_color.setRgb(230, 230, 230);
@@ -186,7 +216,7 @@ void TimerTable::saveButtonOnEdit(const TimerButton::Data &data)
         QWidget* plus = cellWidget(r, c);
         removeItem(r, c);
 
-        button_on_edit = addButton(data.calendar);
+        button_on_edit = addButton(data.calendar, true);
 
         // decided to make new instead of re-using,
         // because QTableWidget doesn't delete it when removing from grid,
@@ -200,7 +230,33 @@ void TimerTable::saveButtonOnEdit(const TimerButton::Data &data)
     }
 
     button_on_edit->setData(data);
+    setTimersInSettings();
     updateStyle();
+}
+
+void TimerTable::deleteButtonOnEdit()
+{
+    // NOT yet working
+    // First we need to make a function remove(r,c) that moves all widgets one back
+    // It would also be good to make a function setColumnCount(c) that re-orders all widgets
+
+    if(button_on_edit != nullptr){
+        int index = -1;
+        for(int i = 0; i < m_added_timers.size(); ++i)
+            if(m_added_timers[i] == button_on_edit)
+                index = i;
+        Q_ASSERT(index != -1);
+        m_added_timers.remove(index);
+        int r = index / columnCount();
+        int c = index % columnCount();
+        QWidget* button = cellWidget(r, c);
+        removeItem(r, c);
+        delete button;
+
+        setTimersInSettings();
+        updateStyle();
+    }
+
 }
 
 void TimerTable::setupButton(QAbstractButton *button)

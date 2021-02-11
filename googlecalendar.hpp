@@ -46,8 +46,8 @@ public:
       bool operator==(const Calendar& other) const;
 
       // functions to allow writing to QSettings as a CustomType
-      friend QDataStream& operator<<(QDataStream& out, const Calendar& c);
-      friend QDataStream &operator<<(QDataStream &in, Calendar& c);
+      friend QDataStream &operator<<(QDataStream &out, const Calendar &c);
+      friend QDataStream &operator>>(QDataStream &in, Calendar &c);
     };
 
     struct Event{
@@ -74,6 +74,7 @@ public:
     static bool isOnline();
     bool isSignedIn();
 
+    Calendar* getCalendarById(const QString &id);
     QVector<Calendar*>& getOwnedCalendarList();
     QVector<Event> getCalendarEvents(Calendar* cal,
                                      const QDateTime &start,

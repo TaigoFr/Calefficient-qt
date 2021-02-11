@@ -21,18 +21,17 @@ TimerButton::TimerButton(const Data& a_data, QWidget* parent)
 }
 
 void TimerButton::start(){
-    time = QDateTime::currentDateTime();
+    data.start_time = QDateTime::currentDateTime();
     updateText();
 }
 
 void TimerButton::updateText(){
-    display_timer = display_timer.fromMSecsSinceEpoch(getElapsedTime()).toTimeSpec(Qt::TimeSpec::UTC);
+    QDateTime display_timer = QDateTime::fromMSecsSinceEpoch(getElapsedTime()).toTimeSpec(Qt::TimeSpec::UTC);
     this->setText(name_formatted + "\n\n" + display_timer.toString(timeFormat));
 }
 
 void TimerButton::reset(){
     setName((data.name == "" && data.calendar != nullptr) ? data.calendar->name : data.name);
-    display_timer = QDateTime::fromMSecsSinceEpoch(0).toTimeSpec(Qt::TimeSpec::UTC);
     this->setText(name_formatted);
     //updateText();
 }
@@ -49,7 +48,7 @@ void TimerButton::setName(QString name)
     QStringList list = name.split(QRegExp("\\s+"), Qt::KeepEmptyParts);
     for(int s=0; s<list.size(); ++s){
         for(int i=0; i<list[s].size(); i+=max_characters_per_line){
-            name_formatted += list[s].mid(i,max_characters_per_line);
+            name_formatted += list[s].midRef(i,max_characters_per_line);
             if(i+max_characters_per_line<list[s].size())
                 name_formatted += "\n";
         }
@@ -71,12 +70,12 @@ void TimerButton::setData(const TimerButton::Data & a_data)
 
 QDateTime TimerButton::getStart()
 {
-    return time;
+    return data.start_time;
 }
 
 float TimerButton::getElapsedTime()
 {
-    return time.msecsTo(QDateTime::currentDateTime());
+    return data.start_time.msecsTo(QDateTime::currentDateTime());
 }
 
 bool TimerButton::event(QEvent *event)
@@ -97,4 +96,17 @@ bool TimerButton::event(QEvent *event)
 TimerButton::Data::Data(const GoogleCalendar::Calendar *cal)
 {
     calendar = cal;
+}
+
+// functions to allow writing to QSettings as a CustomType
+QDataStream& operator<<(QDataStream& out, const TimerButton::Data& d) {
+    out << d.name << d.description << d.calendar->id << d.start_time;
+    return out;
+}
+
+QDataStream& operator>>(QDataStream& in, TimerButton::Data& d) {
+    QString cal_id;
+    in >> d.name >> d.description >> cal_id >> d.start_time;
+    d.calendar = GoogleCalendar::getInstance().getCalendarById(cal_id);
+    return in;
 }

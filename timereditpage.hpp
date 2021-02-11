@@ -17,6 +17,12 @@ class TimerEditPage: public QWidget
     Q_OBJECT
 
 public:
+    enum Result{
+      DELETE,
+      CANCEL,
+      SAVE
+    };
+
     TimerEditPage(QWidget * parent = nullptr);
 
     void updateStyle();
@@ -24,7 +30,7 @@ public:
     void setData(const TimerButton::Data&);
 
 signals:
-    void done(int success);
+    void done(Result result);
 
 private:
     void setCalendars();

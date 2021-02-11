@@ -84,20 +84,25 @@ TimerEditPage::TimerEditPage(QWidget * parent)
     // exitButtons
     QHBoxLayout *exitButtons_layout = new QHBoxLayout(exitButtons);
 
+    QPushButton *deleteButton = new QPushButton("Delete", exitButtons);
     QPushButton *cancelButton = new QPushButton("Cancel", exitButtons);
     QPushButton *saveButton = new QPushButton("Save", exitButtons);
 
+    deleteButton->setStyleSheet("background-color: red;");
     cancelButton->setStyleSheet("background-color: black;");
     saveButton->setStyleSheet("background-color: rgb(0, 144, 0);");
 
+    connect(deleteButton, &QPushButton::clicked, [this](){
+        emit done(DELETE);
+    });
     connect(cancelButton, &QPushButton::clicked, [this](){
-        emit done(0);
+        emit done(CANCEL);
     });
     connect(saveButton, &QPushButton::clicked, [this](){
-        emit done(1);
+        emit done(SAVE);
     });
 
-
+    exitButtons_layout->addWidget(deleteButton);
     exitButtons_layout->addWidget(cancelButton);
     exitButtons_layout->addWidget(saveButton);
 

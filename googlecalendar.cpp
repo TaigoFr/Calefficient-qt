@@ -15,6 +15,7 @@ GoogleCalendar *GoogleCalendar::instance = nullptr;
 
 GoogleCalendar::GoogleCalendar(const QString& credentials_file) : m_settings("Calefficient", "GoogleCalendar")
 {
+    // allow writing to QSettings as a CustomType
     qRegisterMetaTypeStreamOperators<QVector<Calendar>>("QVector<Calendar>");
 
     readCrendentials(credentials_file);
@@ -346,7 +347,6 @@ bool GoogleCalendar::deleteEvent(GoogleCalendar::Event &event)
 
 bool GoogleCalendar::checkForUpdates()
 {
-    qDebug() << "HERE";
     return checkForCalendarUpdates() || checkForEventUpdates();
 }
 
@@ -376,8 +376,6 @@ bool GoogleCalendar::checkForEventUpdates()
     }
 
     if(new_exist){
-        qDebug() << new_events;
-
         emit eventsUpdated(updated_events, deleted_ids);
         return true;
     }
@@ -399,7 +397,6 @@ void GoogleCalendar::getCalendarsFromSettings()
     QVector<Calendar> read = m_settings.value("calendars").value<QVector<Calendar>>();
     for(Calendar &cal: read)
         m_calendars.push_back(new Calendar(cal));
-    qDebug() << m_calendars;
 }
 
 
@@ -447,9 +444,6 @@ bool GoogleCalendar::checkForCalendarUpdates()
         sortCalendars();
 
     if(deleted_ids.size() || created.size() || updated.size()){
-        qDebug() << "deleted_ids" << deleted_ids;
-        qDebug() << "created" << created;
-        qDebug() << "updated" << updated;
         setCalendarsInSettings();
         emit calendarsUpdated(deleted_ids, created, updated);
         return true;
@@ -762,6 +756,14 @@ bool GoogleCalendar::isOnline()
 bool GoogleCalendar::isSignedIn()
 {
     return token() != "";
+}
+
+GoogleCalendar::Calendar *GoogleCalendar::getCalendarById(const QString &id)
+{
+    for(Calendar *cal : m_calendars)
+        if(cal->id == id)
+            return cal;
+    return nullptr;
 }
 
 void GoogleCalendar::deleteTokens()

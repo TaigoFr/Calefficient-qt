@@ -18,7 +18,13 @@ public:
         QString description;
         const GoogleCalendar::Calendar *calendar;
         //QColor color;
+        QDateTime start_time;
+
         Data(const GoogleCalendar::Calendar * cal = nullptr);
+
+        // functions to allow writing to QSettings as a CustomType
+        friend QDataStream &operator<<(QDataStream &out, const Data &d);
+        friend QDataStream &operator>>(QDataStream &in, Data &d);
     };
 
     TimerButton(const GoogleCalendar::Calendar* a_cal = nullptr, QWidget* parent = nullptr);
@@ -44,10 +50,10 @@ private:
 private:
     Data data;
     QString name_formatted;
-    QDateTime time;
-    QDateTime display_timer;
 
     static const QString timeFormat;
 };
+
+Q_DECLARE_METATYPE(TimerButton::Data)
 
 #endif // TIMERBUTTON_HPP
